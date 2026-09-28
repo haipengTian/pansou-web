@@ -68,6 +68,11 @@
 
 /* 基础样式 */
 @layer base {
+  html {
+    /* 搜索结果使页面变长时，预留主滚动条空间，避免居中布局横向跳动。 */
+    scrollbar-gutter: stable;
+  }
+
   * {
     @apply border-border;
   }

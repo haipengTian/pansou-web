@@ -1001,6 +1001,7 @@ onUnmounted(() => {
 .result-list {
   max-height: 600px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 1rem;
 }
 
