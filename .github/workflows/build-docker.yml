@@ -1,130 +1,116 @@
-name: Build and Push Docker Image
+name: 构建并发布前后端一体镜像
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches:
+      - production
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
   pull_request:
-    branches: [ main ]
+    branches:
+      - develop
+      - production
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
 
     steps:
-    - name: Checkout frontend repository
-      uses: actions/checkout@v4
-      with:
-        path: frontend
+      - name: 检出前端 production 代码
+        uses: actions/checkout@v4
+        with:
+          path: frontend
 
-    - name: Checkout backend repository
-      uses: actions/checkout@v4
-      with:
-        repository: fish2018/pansou
-        path: backend
-        # 如果后端仓库是私有的，需要配置token
-        # token: ${{ secrets.BACKEND_REPO_TOKEN }}
+      - name: 检出自己的后端 production 代码
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/pansou
+          ref: production
+          path: backend
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
+      - name: 设置Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.25'
-        cache-dependency-path: backend/go.sum
+      - name: 设置Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: backend/go.sum
 
-    - name: Install frontend dependencies
-      working-directory: frontend
-      run: npm ci
+      - name: 构建前端
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
 
-    - name: Build frontend
-      working-directory: frontend
-      run: |
-        npm run build
-        ls -la dist/
+      - name: 构建多架构后端
+        working-directory: backend
+        run: |
+          go mod download
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o pansou-amd64 .
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o pansou-arm64 .
+          chmod +x pansou-amd64 pansou-arm64
 
-    - name: Install backend dependencies
-      working-directory: backend
-      run: go mod download
+      - name: 准备一体镜像构建目录
+        run: |
+          mkdir -p build-context
+          cp -r frontend/dist build-context/frontend-dist
+          cp backend/pansou-amd64 backend/pansou-arm64 build-context/
+          cp frontend/Dockerfile frontend/start.sh build-context/
+          chmod +x build-context/start.sh
 
-    - name: Build backend for multiple architectures
-      working-directory: backend
-      run: |
-        # 构建 AMD64 版本
-        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o pansou-amd64 .
-        # 构建 ARM64 版本
-        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -installsuffix cgo -o pansou-arm64 .
-        chmod +x pansou-*
+      - name: 设置QEMU
+        uses: docker/setup-qemu-action@v3
 
-    - name: Prepare build context
-      run: |
-        mkdir -p build-context
-        # 复制前端构建产物
-        cp -r frontend/dist build-context/frontend-dist
-        # 复制后端二进制文件 (多架构)
-        cp backend/pansou-amd64 build-context/
-        cp backend/pansou-arm64 build-context/
-        # 复制Docker相关文件
-        cp frontend/Dockerfile build-context/
-        cp frontend/start.sh build-context/
-        chmod +x build-context/start.sh
+      - name: 设置Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: 登录GitHub容器注册表
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: linux/amd64,linux/arm64
+      - name: 生成镜像标签
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=production,enable=${{ github.ref == 'refs/heads/production' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/production' }}
+            type=sha,format=short
 
-    - name: Log in to Container Registry
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          # 分支标签
-          type=ref,event=branch
-          # PR标签
-          type=ref,event=pr
-          # 语义化版本标签
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}}
-          # latest标签 - 仅在main分支推送时生成
-          type=raw,value=latest,enable={{is_default_branch}}
-          # commit hash标签
-          type=sha,prefix=sha-
-
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: build-context
-        platforms: linux/amd64,linux/arm64
-        push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        build-args: |
-          BUILDTIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
-          VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
-          REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
+      - name: 构建并推送一体镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: build-context
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDTIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+            REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}

@@ -1,0 +1,44 @@
+name: pansou
+
+services:
+  pansou:
+    image: "${PANSOU_IMAGE:-ghcr.io/haipengtian/pansou-web:production}"
+    container_name: pansou
+    restart: unless-stopped
+    pull_policy: always
+
+    ports:
+      - "${WEB_BIND_ADDRESS:-0.0.0.0}:${WEB_HTTP_PORT:-80}:80"
+
+    env_file:
+      - .env
+    environment:
+      # Nginx 和 Go 后端运行在同一个容器内。
+      PANSOU_HOST: "127.0.0.1"
+      PANSOU_PORT: "8888"
+      AUTH_ENABLED: "${AUTH_ENABLED:-true}"
+      AUTH_USERS: "${AUTH_USERS:?请在 deploy/.env 中设置 AUTH_USERS}"
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?请在 deploy/.env 中设置 AUTH_JWT_SECRET}"
+
+    volumes:
+      - pansou-data:/app/data
+
+    healthcheck:
+      test: ["CMD", "/app/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+    stop_grace_period: 25s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  pansou-data:
+    name: pansou-data
