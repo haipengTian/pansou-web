@@ -1,21 +1,18 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed, nextTick, watch } from 'vue';
-import { search, logout, getHealth, verifyToken, type SearchParams, type HealthStatus } from '@/api';
+import { ref, reactive, onMounted, onUnmounted, computed, nextTick, watch, defineAsyncComponent } from 'vue';
+import { search, logout, getHealth, verifyToken, getSearchOptions, type SearchParams, type HealthStatus, type SearchOptions } from '@/api';
 import type { SearchResponse, MergedResults, ExportField, ExportSettings } from '@/types';
 import SearchForm from '@/components/SearchForm.vue';
 import ResultTabs from '@/components/ResultTabs.vue';
 import SearchStats from '@/components/SearchStats.vue';
 import SearchConfig from '@/components/SearchConfig.vue';
-import ApiDocs from '@/components/ApiDocs.vue';
 import LoginDialog from '@/components/LoginDialog.vue';
-import QQPDManager from '@/components/QQPDManager.vue';
-import AccountCenter from '@/components/AccountCenter.vue';
-import GyingManager from '@/components/GyingManager.vue';
-import PanlianManager from '@/components/PanlianManager.vue';
-import WeiboManager from '@/components/WeiboManager.vue';
-import WoniuManager from '@/components/WoniuManager.vue';
+import { Button, confirmDialog } from '@/components/ui';
 import ExportResultsModal from '@/components/ExportResultsModal.vue';
 import { getDiskTypeName } from '@/utils/diskTypes';
+
+// API 文档体积较大，进入该页时才加载
+const ApiDocs = defineAsyncComponent(() => import('@/components/ApiDocs.vue'));
 
 // 后端健康状态缓存（应用启动时获取一次）
 const backendHealth = ref<HealthStatus | null>(null);
@@ -46,6 +43,7 @@ const navHeaderRef = ref<HTMLElement | null>(null);
 const mainContentRef = ref<HTMLElement | null>(null);
 const footerRef = ref<HTMLElement | null>(null);
 const searchResultsBlockRef = ref<HTMLElement | null>(null);
+const searchFormBlockRef = ref<HTMLElement | null>(null);
 const mobileSearchResultsHeight = ref<string>('');
 const exportSettings = ref<ExportSettings>({
   format: 'json',
@@ -76,78 +74,37 @@ const exportableDiskTypes = computed(() => {
 let forceRefreshPending = false;
 
 // 当前页面状态
-const currentPage = ref<'search' | 'status' | 'docs' | 'accounts' | 'qqpd' | 'gying' | 'panlian' | 'weibo' | 'woniu'>('search');
+// 客户端页面：搜索、筛选、API 文档；插件配置、数据源账号与监控都在管理后台（/admin）。
+const currentPage = ref<'search' | 'status' | 'docs'>('search');
 
 // 登录状态
 const showLogin = ref(false);
 const isAuthenticated = ref(false);
 const currentUsername = ref('');
 
-// QQPD插件状态
-const isQQPDEnabled = ref(false);
+// 客户可选的搜索范围（由管理后台配置），进入筛选页时加载
+const searchOptions = ref<SearchOptions | null>(null);
+const searchOptionsError = ref('');
 
-// Gying插件状态
-const isGyingEnabled = ref(false);
-
-// 盘链插件状态
-const isPanlianEnabled = ref(false);
-
-// Weibo插件状态
-const isWeiboEnabled = ref(false);
-
-// 蜗牛
-const isWoniuEnabled = ref(false);
-
-// 检查是否有需要账号管理的服务
-const hasAccountServices = computed(() => {
-  return isQQPDEnabled.value || isGyingEnabled.value || isPanlianEnabled.value || isWeiboEnabled.value || isWoniuEnabled.value;
-});
-
-// 页面切换
-const switchToStatus = () => {
-  currentPage.value = 'status';
+const loadSearchOptions = async () => {
+  searchOptionsError.value = '';
+  try {
+    searchOptions.value = await getSearchOptions();
+  } catch (err) {
+    console.error('获取可选搜索范围失败:', err);
+    searchOptionsError.value = '获取可选搜索范围失败，请稍后重试';
+  }
 };
 
+// 页面切换
 const switchToDocs = () => {
   currentPage.value = 'docs';
 };
 
-const switchToAccounts = () => {
-  currentPage.value = 'accounts';
-};
-
-const switchToQQPD = () => {
-  currentPage.value = 'qqpd';
-};
-
-const switchToGying = () => {
-  currentPage.value = 'gying';
-};
-
-const switchToPanlian = () => {
-  currentPage.value = 'panlian';
-};
-
-const switchToWeibo = () => {
-  currentPage.value = 'weibo';
-};
-
-const switchToWoniu = () => {
-  currentPage.value = 'woniu';
-};
-
-// 从账号中心导航到具体服务
-const handleAccountNavigate = (service: 'qqpd' | 'gying' | 'panlian' | 'weibo' | 'woniu') => {
-  if (service === 'qqpd') {
-    switchToQQPD();
-  } else if (service === 'gying') {
-    switchToGying();
-  } else if (service === 'panlian') {
-    switchToPanlian();
-  } else if (service === 'weibo') {
-    switchToWeibo();
-  } else if (service === 'woniu') {
-    switchToWoniu();
+const switchToStatus = () => {
+  currentPage.value = 'status';
+  if (!searchOptions.value) {
+    loadSearchOptions();
   }
 };
 
@@ -709,6 +666,16 @@ const syncMobileSearchLayout = () => {
   });
 };
 
+// 窄屏下结果区高度是按"页脚顶部 - 结果区顶部"算出的固定值。表单区高度变化
+// （如展开"高级筛选"）不会触发下面的状态 watch，旧高度会把表单挤压并盖住溢出的筛选面板，
+// 所以还要监听表单区自身的尺寸变化并重算。
+watch(searchFormBlockRef, (el, _prev, onCleanup) => {
+  if (!el || typeof ResizeObserver === 'undefined') return;
+  const observer = new ResizeObserver(() => syncMobileSearchLayout());
+  observer.observe(el);
+  onCleanup(() => observer.disconnect());
+});
+
 watch(
   () => [currentPage.value, hasSearched.value, loading.value, searchResults.total, isActivelySearching.value],
   () => {
@@ -992,189 +959,12 @@ const handleLoginSuccess = () => {
 
 // 退出登录
 const handleLogout = async () => {
-  if (confirm('确定要退出登录吗？')) {
+  if ((await confirmDialog({ title: '请确认', message: '确定要退出登录吗？' }))) {
     await logout();
     window.location.reload();
   }
 };
 
-// 检查QQPD插件是否显示（后端支持时默认显示，除非用户主动禁用）
-const checkQQPDPlugin = () => {
-  try {
-    // 1. 检查后端是否支持QQPD（使用缓存的健康状态）
-    const backendSupportsQQPD = backendHealth.value?.plugins?.includes('qqpd') || false;
-    
-    // 2. 如果后端不支持，直接隐藏
-    if (!backendSupportsQQPD) {
-      isQQPDEnabled.value = false;
-      return;
-    }
-    
-    // 3. 检查用户配置
-    try {
-      const savedPlugins = localStorage.getItem('pansou_plugins');
-      
-      if (savedPlugins === null) {
-        // 用户从未保存过配置，默认启用（后端支持即显示）
-        isQQPDEnabled.value = true;
-      } else {
-        // 用户保存过配置，按用户配置来
-        const plugins = JSON.parse(savedPlugins);
-        isQQPDEnabled.value = Array.isArray(plugins) && plugins.includes('qqpd');
-      }
-    } catch (err) {
-      console.error('读取用户插件配置失败:', err);
-      // 解析失败时，默认启用
-      isQQPDEnabled.value = true;
-    }
-  } catch (error) {
-    console.error('检查QQPD插件失败:', error);
-    isQQPDEnabled.value = false;
-  }
-};
-
-// 检查Gying插件是否启用
-const checkGyingPlugin = () => {
-  try {
-    // 1. 检查后端是否支持Gying（使用缓存的健康状态）
-    const backendSupportsGying = backendHealth.value?.plugins?.includes('gying') || false;
-    
-    // 2. 如果后端不支持，直接隐藏
-    if (!backendSupportsGying) {
-      isGyingEnabled.value = false;
-      return;
-    }
-    
-    // 3. 检查用户配置
-    try {
-      const savedPlugins = localStorage.getItem('pansou_plugins');
-      
-      if (savedPlugins === null) {
-        // 用户从未保存过配置，默认启用（后端支持即显示）
-        isGyingEnabled.value = true;
-      } else {
-        // 用户保存过配置，按用户配置来
-        const plugins = JSON.parse(savedPlugins);
-        isGyingEnabled.value = Array.isArray(plugins) && plugins.includes('gying');
-      }
-    } catch (err) {
-      console.error('读取用户插件配置失败:', err);
-      // 解析失败时，默认启用
-      isGyingEnabled.value = true;
-    }
-  } catch (error) {
-    console.error('检查Gying插件失败:', error);
-    isGyingEnabled.value = false;
-  }
-};
-
-// 检查盘链插件是否启用
-const checkPanlianPlugin = () => {
-  try {
-    const backendSupportsPanlian = backendHealth.value?.plugins?.includes('panlian') || false;
-
-    if (!backendSupportsPanlian) {
-      isPanlianEnabled.value = false;
-      return;
-    }
-
-    try {
-      const savedPlugins = localStorage.getItem('pansou_plugins');
-
-      if (savedPlugins === null) {
-        isPanlianEnabled.value = true;
-      } else {
-        const plugins = JSON.parse(savedPlugins);
-        isPanlianEnabled.value = Array.isArray(plugins) && plugins.includes('panlian');
-      }
-    } catch (err) {
-      console.error('读取用户插件配置失败:', err);
-      isPanlianEnabled.value = true;
-    }
-  } catch (error) {
-    console.error('检查Panlian插件失败:', error);
-    isPanlianEnabled.value = false;
-  }
-};
-
-// 检查Weibo插件是否启用
-const checkWeiboPlugin = () => {
-  try {
-    const backendSupportsWeibo = backendHealth.value?.plugins?.includes('weibo') || false;
-    
-    if (!backendSupportsWeibo) {
-      isWeiboEnabled.value = false;
-      return;
-    }
-    
-    try {
-      const savedPlugins = localStorage.getItem('pansou_plugins');
-      
-      if (savedPlugins === null) {
-        isWeiboEnabled.value = true;
-      } else {
-        const plugins = JSON.parse(savedPlugins);
-        isWeiboEnabled.value = Array.isArray(plugins) && plugins.includes('weibo');
-      }
-    } catch (err) {
-      console.error('读取用户插件配置失败:', err);
-      isWeiboEnabled.value = true;
-    }
-  } catch (error) {
-    console.error('检查Weibo插件失败:', error);
-    isWeiboEnabled.value = false;
-  }
-};
-
-// 检查蜗牛插件是否启用
-const checkWoniuPlugin = () => {
-  try {
-    const backendSupportsWoniu = backendHealth.value?.plugins?.includes('woniu') || false;
-
-    if (!backendSupportsWoniu) {
-      isWoniuEnabled.value = false;
-      return;
-    }
-
-    try {
-      const savedPlugins = localStorage.getItem('pansou_plugins');
-
-      if (savedPlugins === null) {
-        isWoniuEnabled.value = true;
-      } else {
-        const plugins = JSON.parse(savedPlugins);
-        isWoniuEnabled.value = Array.isArray(plugins) && plugins.includes('woniu');
-      }
-    } catch (err) {
-      console.error('读取用户插件配置失败:', err);
-      isWoniuEnabled.value = true;
-    }
-  } catch (error) {
-    console.error('检查蜗牛插件失败:', error);
-    isWoniuEnabled.value = false;
-  }
-};
-
-// 监听localStorage变化，当用户配置改变时更新插件状态
-const handleStorageChange = (e: StorageEvent) => {
-  // 只关心插件配置的变化
-  if (e.key === 'pansou_plugins') {
-    checkQQPDPlugin();
-    checkGyingPlugin();
-    checkPanlianPlugin();
-    checkWeiboPlugin();
-    checkWoniuPlugin();
-  }
-};
-
-// 自定义事件：当用户在配置页保存设置时触发
-const handleConfigSaved = () => {
-  checkQQPDPlugin();
-  checkGyingPlugin();
-  checkPanlianPlugin();
-  checkWeiboPlugin();
-  checkWoniuPlugin();
-};
 
 // 强制刷新处理
 const handleForceRefresh = () => {
@@ -1195,16 +985,9 @@ onMounted(async () => {
   
   // 然后初始化其他状态
   checkAuth();
-  checkQQPDPlugin();
-  checkGyingPlugin();
-  checkPanlianPlugin();
-  checkWeiboPlugin();
-  checkWoniuPlugin();
   
   // 监听事件
   window.addEventListener('auth:required', handleAuthRequired);
-  window.addEventListener('storage', handleStorageChange);
-  window.addEventListener('config:saved', handleConfigSaved);
   window.addEventListener('resize', syncMobileSearchLayout);
 });
 
@@ -1212,8 +995,6 @@ onUnmounted(() => {
   // 确保在组件卸载时清理所有定时器和事件监听
   stopUpdate();
   window.removeEventListener('auth:required', handleAuthRequired);
-  window.removeEventListener('storage', handleStorageChange);
-  window.removeEventListener('config:saved', handleConfigSaved);
   window.removeEventListener('resize', syncMobileSearchLayout);
 });
 </script>
@@ -1245,11 +1026,12 @@ onUnmounted(() => {
         
         <!-- 导航菜单 -->
         <nav class="flex items-center gap-2">
-          <button 
-            @click="switchToSearch"
+          <Button
+            :variant="currentPage === 'search' ? 'default' : 'outline'"
             class="nav-button"
-            :class="{ 'active': currentPage === 'search' }"
             title="搜索"
+            :aria-current="currentPage === 'search' ? 'page' : undefined"
+            @click="switchToSearch"
           >
             <span class="nav-icon">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1257,12 +1039,13 @@ onUnmounted(() => {
               </svg>
             </span>
             <span class="nav-text">搜索</span>
-          </button>
-          <button 
-            @click="switchToStatus"
+          </Button>
+          <Button
+            :variant="currentPage === 'status' ? 'default' : 'outline'"
             class="nav-button"
-            :class="{ 'active': currentPage === 'status' }"
-            title="配置"
+            title="搜索筛选"
+            :aria-current="currentPage === 'status' ? 'page' : undefined"
+            @click="switchToStatus"
           >
             <span class="nav-icon">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1270,44 +1053,30 @@ onUnmounted(() => {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
               </svg>
             </span>
-            <span class="nav-text">配置</span>
-          </button>
-          <button 
-            @click="switchToDocs"
+            <span class="nav-text">筛选</span>
+          </Button>
+          <Button
+            :variant="currentPage === 'docs' ? 'default' : 'outline'"
             class="nav-button"
-            :class="{ 'active': currentPage === 'docs' }"
-            title="API文档"
+            title="API 文档"
+            :aria-current="currentPage === 'docs' ? 'page' : undefined"
+            @click="switchToDocs"
           >
             <span class="nav-icon">
               <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <!-- 文档外框 -->
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M14 2v6h6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <!-- API文字 -->
                 <text x="12" y="15" font-size="6" font-weight="bold" text-anchor="middle" fill="currentColor" font-family="Arial, sans-serif">API</text>
               </svg>
             </span>
             <span class="nav-text">API</span>
-          </button>
-          <button 
-            v-if="hasAccountServices"
-            @click="switchToAccounts"
-            class="nav-button"
-            :class="{ 'active': currentPage === 'accounts' || currentPage === 'qqpd' || currentPage === 'gying' || currentPage === 'panlian' || currentPage === 'weibo' || currentPage === 'woniu' }"
-            title="账号管理"
-          >
-            <span class="nav-icon">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-              </svg>
-            </span>
-            <span class="nav-text">账号</span>
-          </button>
-          <button 
+          </Button>
+          <Button
             v-if="isAuthenticated"
-            @click="handleLogout"
+            variant="outline"
             class="nav-button logout-button"
             :title="'退出登录 (当前用户: ' + currentUsername + ')'"
+            @click="handleLogout"
           >
             <span class="nav-icon">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1315,7 +1084,7 @@ onUnmounted(() => {
               </svg>
             </span>
             <span class="nav-text">退出</span>
-          </button>
+          </Button>
         </nav>
       </div>
     </nav>
@@ -1329,7 +1098,7 @@ onUnmounted(() => {
       <!-- 搜索页面 -->
       <div v-if="currentPage === 'search'" class="search-page">
         <!-- 搜索表单 -->
-        <div class="search-form-block mb-6">
+        <div ref="searchFormBlockRef" class="search-form-block mb-6">
           <SearchForm 
             :backend-health="backendHealth"
             @search="handleSearch" 
@@ -1385,46 +1154,15 @@ onUnmounted(() => {
         />
       </div>
       
-      <!-- 配置页面 -->
+      <!-- 搜索筛选页面：只能在管理后台放开的范围内选择 -->
       <div v-else-if="currentPage === 'status'" class="status-page">
-        <SearchConfig :backend-health="backendHealth" />
+        <div v-if="searchOptionsError" class="text-center text-sm text-red-500 py-8">{{ searchOptionsError }}</div>
+        <div v-else-if="!searchOptions" class="text-center text-sm text-muted-foreground py-8">加载中...</div>
+        <SearchConfig v-else :options="searchOptions" />
       </div>
-      
-      <!-- API文档页面 -->
+      <!-- API 文档页面 -->
       <div v-else-if="currentPage === 'docs'" class="docs-page">
         <ApiDocs />
-      </div>
-      
-      <!-- 账号管理中心页面 -->
-      <div v-else-if="currentPage === 'accounts'" class="accounts-page">
-        <AccountCenter 
-          :backend-health="backendHealth"
-          @navigate="handleAccountNavigate"
-        />
-      </div>
-      
-      <!-- QQ频道管理页面 -->
-      <div v-else-if="currentPage === 'qqpd'" class="qqpd-page">
-        <QQPDManager @back-to-center="switchToAccounts" />
-      </div>
-      
-      <!-- 观影管理页面 -->
-      <div v-else-if="currentPage === 'gying'" class="gying-page">
-        <GyingManager @back-to-center="switchToAccounts" />
-      </div>
-
-      <div v-else-if="currentPage === 'panlian'" class="panlian-page">
-        <PanlianManager @back-to-center="switchToAccounts" />
-      </div>
-      
-      <!-- 微博管理页面 -->
-      <div v-else-if="currentPage === 'weibo'" class="weibo-page">
-        <WeiboManager @back-to-center="switchToAccounts" />
-      </div>
-
-      <!-- 蜗牛管理页面 -->
-      <div v-else-if="currentPage === 'woniu'" class="woniu-page">
-        <WoniuManager @back-to-center="switchToAccounts" />
       </div>
     </main>
     
@@ -1433,7 +1171,6 @@ onUnmounted(() => {
       <div class="container mx-auto px-4 py-4">
         <div class="flex items-center justify-center gap-4 text-sm text-muted-foreground">
           <span>© {{ new Date().getFullYear() }}-{{ new Date().getFullYear() + 10 }}</span>
-          <a href="/report.html" target="_blank" rel="noopener noreferrer" class="hover:text-foreground transition-colors">实时监控</a>
         </div>
       </div>
     </footer>
@@ -1456,50 +1193,13 @@ onUnmounted(() => {
   z-index: 50;
 }
 
-/* 导航按钮样式 */
+/* 导航按钮：外观由 Button 组件提供，这里只处理图标间距与退出按钮的警示色 */
 .nav-button {
-  display: flex;
-  align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  color: hsl(var(--muted-foreground));
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.nav-button:hover {
-  background: hsl(var(--accent));
-  color: hsl(var(--accent-foreground));
-  border-color: hsl(var(--accent));
-}
-
-.nav-button.active {
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-  border-color: hsl(var(--primary));
 }
 
 .logout-button {
-  border-color: hsl(0, 84%, 60%);
-  color: hsl(0, 84%, 60%);
-}
-
-.logout-button:hover {
-  background: hsl(0, 84%, 95%);
-  border-color: hsl(0, 84%, 60%);
-  color: hsl(0, 84%, 50%);
-}
-
-@media (prefers-color-scheme: dark) {
-  .logout-button:hover {
-    background: hsl(0, 84%, 20%);
-    color: hsl(0, 84%, 90%);
-  }
+  color: hsl(var(--destructive));
 }
 
 
@@ -1611,10 +1311,8 @@ onUnmounted(() => {
   
   /* 移动端按钮样式 - 只显示图标 */
   .nav-button {
-    padding: 0.5rem;
-    font-size: 0.8rem;
-    min-width: 2.5rem;
-    justify-content: center;
+    width: 2.5rem;
+    padding: 0;
   }
   
   /* 移动端隐藏按钮文字 */

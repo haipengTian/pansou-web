@@ -6,9 +6,10 @@
 //   degraded    有过产出但失败占比过半
 //   zero_yield  没有报错但窗口内零产出 —— 其内容通常经后台补齐进缓存，
 //               不代表无数据，界面上也必须把这句话显示出来，避免有人直接删插件
-// 组件自己拉取 /api/health，因此可以挂在任何位置，无需父组件传参。
+// 组件自己拉取 /api/admin/health（需管理员令牌），因此可以挂在后台任何位置，无需父组件传参。
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import { getAdminHealth } from '@/api/admin';
+import { Button } from '@/components/ui';
 import type { LivenessItem, LivenessReport } from '@/types';
 
 const liveness = ref<LivenessReport | null>(null);
@@ -20,9 +21,9 @@ const fetchLiveness = async () => {
   loading.value = true;
   failed.value = null;
   try {
-    const resp = await axios.get('/api/health');
+    const health = await getAdminHealth();
     // 旧版本后端不返回 liveness，按缺失处理即可
-    liveness.value = resp.data?.liveness ?? null;
+    liveness.value = health?.liveness ?? null;
   } catch (e) {
     failed.value = '获取存活观测失败';
     console.error('获取存活观测失败:', e);
@@ -118,9 +119,9 @@ defineExpose({ fetchLiveness });
           {{ liveness.plugin_total }} 插件 / {{ liveness.channel_total }} 频道
         </span>
       </h3>
-      <button class="liveness-refresh" :disabled="loading" @click="fetchLiveness">
-        {{ loading ? '刷新中...' : '刷新' }}
-      </button>
+      <Button variant="outline" size="sm" :loading="loading" @click="fetchLiveness">
+        {{ loading ? '刷新中' : '刷新' }}
+      </Button>
     </div>
 
     <p v-if="loading && !liveness" class="liveness-msg">获取中...</p>
@@ -138,11 +139,11 @@ defineExpose({ fetchLiveness });
           </span>
         </div>
         <div v-for="g in pluginGroups" :key="g.key" class="liveness-group">
-          <button class="liveness-group-toggle" @click="expanded[g.key] = !expanded[g.key]">
+          <Button variant="ghost" size="sm" block class="liveness-group-toggle" :aria-expanded="!!expanded[g.key]" @click="expanded[g.key] = !expanded[g.key]">
             <span class="toggle-icon" :class="{ expanded: expanded[g.key] }">▶</span>
             {{ g.title }}
             <span class="liveness-group-count" :class="g.tone">{{ groupLabel(g) }}</span>
-          </button>
+          </Button>
           <p v-if="g.hint" class="liveness-hint">{{ g.hint }}</p>
           <div v-show="expanded[g.key]" class="liveness-list">
             <div v-for="it in g.items" :key="it.name" class="liveness-row">
@@ -163,11 +164,11 @@ defineExpose({ fetchLiveness });
           </span>
         </div>
         <div v-for="g in channelGroups" :key="g.key" class="liveness-group">
-          <button class="liveness-group-toggle" @click="expanded[g.key] = !expanded[g.key]">
+          <Button variant="ghost" size="sm" block class="liveness-group-toggle" :aria-expanded="!!expanded[g.key]" @click="expanded[g.key] = !expanded[g.key]">
             <span class="toggle-icon" :class="{ expanded: expanded[g.key] }">▶</span>
             {{ g.title }}
             <span class="liveness-group-count" :class="g.tone">{{ groupLabel(g) }}</span>
-          </button>
+          </Button>
           <div v-show="expanded[g.key]" class="liveness-list">
             <div v-for="it in g.items" :key="it.name" class="liveness-row">
               <span class="liveness-name">{{ it.name }}</span>
@@ -214,21 +215,6 @@ defineExpose({ fetchLiveness });
   font-size: 0.75rem;
   font-weight: 400;
   color: #94a3b8;
-}
-
-.liveness-refresh {
-  font-size: 0.78rem;
-  padding: 0.25rem 0.7rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #f8fafc;
-  color: #334155;
-  cursor: pointer;
-}
-
-.liveness-refresh:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 .liveness-block {
@@ -280,17 +266,9 @@ defineExpose({ fetchLiveness });
 }
 
 .liveness-group-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: 100%;
-  padding: 0.35rem 0;
-  background: none;
-  border: none;
-  font-size: 0.85rem;
+  justify-content: flex-start;
+  padding: 0 0.25rem;
   font-weight: 600;
-  color: #334155;
-  cursor: pointer;
 }
 
 .toggle-icon {

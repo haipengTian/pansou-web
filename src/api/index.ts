@@ -55,14 +55,33 @@ interface ApiResponse<T> {
   data: T;
 }
 
-// 健康状态接口（基于实际API返回）
+// 健康状态接口。
+// 公开的 /api/health 只返回 status 与 auth_enabled；插件、频道等字段只在
+// 管理员接口 /api/admin/health 中出现，因此均为可选。
 export interface HealthStatus {
   status: string;
-  plugins_enabled: boolean;
-  plugin_count: number;
-  plugins: string[];
-  channels: string[];
   auth_enabled?: boolean;
+  plugins_enabled?: boolean;
+  plugin_count?: number;
+  plugins?: string[];
+  channels?: string[];
+}
+
+// 当前用户可选的搜索范围（由管理后台配置）
+export interface SearchOptions {
+  channels: string[];
+  default_channels: string[];
+  plugins: string[];
+  cloud_types: string[];
+}
+
+export type UserRole = 'admin' | 'user';
+
+// 当前会话
+export interface Session {
+  valid: boolean;
+  username?: string;
+  role?: UserRole | '';
 }
 
 // 登录请求参数
@@ -76,6 +95,7 @@ export interface LoginResponse {
   token: string;
   expires_at: number;
   username: string;
+  role: UserRole;
 }
 
 // 认证状态
@@ -88,6 +108,12 @@ export interface AuthStatus {
 export const getHealth = async (): Promise<HealthStatus> => {
   const response = await api.get<HealthStatus>('/health');
   return response.data;
+};
+
+// 获取当前用户可选的搜索范围
+export const getSearchOptions = async (): Promise<SearchOptions> => {
+  const response = await api.get<ApiResponse<SearchOptions>>('/search/options');
+  return response.data.data;
 };
 
 // SEARCH_TIMEOUT_MS 搜索请求的超时。
@@ -141,6 +167,23 @@ export const login = async (params: LoginParams): Promise<LoginResponse> => {
   return response.data;
 };
 
+// 获取当前会话（用户名与角色）
+export const getSession = async (): Promise<Session> => {
+  try {
+    const response = await api.post<Session>('/auth/verify');
+    return response.data;
+  } catch {
+    return { valid: false };
+  }
+};
+
+// 保存登录结果
+export const saveLogin = (response: LoginResponse) => {
+  localStorage.setItem('auth_token', response.token);
+  localStorage.setItem('auth_username', response.username);
+  localStorage.setItem('auth_role', response.role);
+};
+
 // 验证token
 export const verifyToken = async (): Promise<boolean> => {
   try {
@@ -158,6 +201,7 @@ export const logout = async (): Promise<void> => {
   } finally {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_username');
+    localStorage.removeItem('auth_role');
   }
 };
 

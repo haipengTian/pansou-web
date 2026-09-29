@@ -35,19 +35,7 @@
 
     <!-- 导航选项卡 -->
     <div class="api-tabs">
-      <button 
-        v-for="tab in tabs" 
-        :key="tab.id"
-        @click="activeTab = tab.id"
-        class="tab-button"
-        :class="{ 'tab-active': activeTab === tab.id }"
-        :title="tab.name"
-      >
-        <span class="tab-icon">
-          <component :is="tab.icon" :size="20" />
-        </span>
-        <span class="tab-name">{{ tab.name }}</span>
-      </button>
+      <Tabs v-model="activeTab" :tabs="tabItems" variant="underline" />
     </div>
 
     <!-- 搜索API文档 -->
@@ -68,14 +56,9 @@
           <div class="auth-header-form">
             <div class="form-group">
               <label>Authorization Header:</label>
-              <div class="auth-input-wrapper">
-                <span class="auth-prefix">Bearer</span>
-                <input 
-                  v-model="authToken" 
-                  class="form-input auth-input" 
-                  :placeholder="effectiveToken || (authEnabled ? '请先登录或在认证API调试获取token' : '留空即可，未启用认证')"
-                />
-              </div>
+              <Input v-model="authToken" :placeholder="effectiveToken || (authEnabled ? '请先登录或在认证API调试获取token' : '留空即可，未启用认证')">
+                <template #prefix><span class="auth-prefix">Bearer</span></template>
+              </Input>
               <p class="auth-hint">
                 {{ tokenStatus }}
               </p>
@@ -113,39 +96,28 @@
           <div class="debug-form">
             <div class="form-group">
               <label>请求方法:</label>
-              <select v-model="searchMethod" class="form-select">
-                <option value="POST">POST</option>
-                <option value="GET">GET</option>
-              </select>
+              <Select v-model="searchMethod" :options="SEARCH_METHOD_OPTIONS" />
             </div>
 
             <div class="form-row">
               <div class="form-group">
                 <label>结果类型:</label>
-                <select v-model="searchForm.res" class="form-select">
-                  <option value="merge">merge - 仅返回merged_by_type</option>
-                  <option value="all">all - 返回所有结果</option>
-                  <option value="results">results - 仅返回results</option>
-                </select>
+                <Select v-model="searchForm.res" :options="RESULT_TYPE_OPTIONS" />
               </div>
               <div class="form-group">
                 <label>数据来源:</label>
-                <select v-model="searchForm.src" class="form-select" @change="onSourceChange">
-                  <option value="all">all - 全部来源</option>
-                  <option value="tg">tg - 仅Telegram</option>
-                  <option value="plugin">plugin - 仅插件</option>
-                </select>
+                <Select v-model="searchForm.src" :options="SOURCE_OPTIONS" />
               </div>
             </div>
 
             <div class="form-group">
               <label>关键词 *:</label>
-              <input v-model="searchForm.kw" class="form-input" placeholder="输入搜索关键词" />
+              <Input v-model="searchForm.kw" placeholder="输入搜索关键词" />
             </div>
 
             <div class="form-group">
               <label>网盘类型:</label>
-              <input v-model="searchForm.cloud_types" class="form-input" placeholder="baidu,aliyun,quark等，用逗号分隔" />
+              <Input v-model="searchForm.cloud_types" placeholder="baidu,aliyun,quark等，用逗号分隔" />
             </div>
             
             <!-- 插件列表 - 只在非Telegram时显示 -->
@@ -154,7 +126,7 @@
                 插件列表:
                 <span class="field-status" v-if="searchForm.src === 'plugin'">仅插件模式</span>
               </label>
-              <input v-model="searchForm.plugins" class="form-input" placeholder="插件名,用逗号分隔，留空使用默认" />
+              <Input v-model="searchForm.plugins" placeholder="插件名,用逗号分隔，留空使用默认" />
             </div>
 
             <!-- 频道列表 - 只在非仅插件时显示 -->
@@ -163,17 +135,17 @@
                 频道列表:
                 <span class="field-status" v-if="searchForm.src === 'tg'">仅Telegram模式</span>
               </label>
-              <input v-model="searchForm.channels" class="form-input" placeholder="频道名,用逗号分隔，留空使用默认" />
+              <Input v-model="searchForm.channels" placeholder="频道名,用逗号分隔，留空使用默认" />
             </div>
 
             <div class="form-group">
               <label>扩展参数 (JSON):</label>
-              <textarea v-model="searchForm.ext" class="form-textarea" placeholder='{"title_en":"English Title","is_all":true}'></textarea>
+              <Textarea v-model="searchForm.ext" :rows="4" monospace placeholder='{"title_en":"English Title","is_all":true}' />
             </div>
 
             <div class="form-group">
               <label>过滤配置 (JSON):</label>
-              <textarea v-model="searchForm.filter" class="form-textarea" placeholder='{"include":["高码","hdr"],"exclude":["预告","抢先"]}'></textarea>
+              <Textarea v-model="searchForm.filter" :rows="4" monospace placeholder='{"include":["高码","hdr"],"exclude":["预告","抢先"]}' />
               <p class="filter-hint">
                 💡 <strong>include</strong>: 结果中至少包含一个关键词 (OR关系) | <strong>exclude</strong>: 结果中包含任意一个关键词就排除 (OR关系)
               </p>
@@ -182,23 +154,23 @@
             <div class="form-row">
               <div class="form-group">
                 <label>并发数:</label>
-                <input v-model.number="searchForm.conc" type="number" class="form-input" placeholder="默认自动" />
+                <Input v-model.number="searchForm.conc" type="number" placeholder="默认自动" />
               </div>
               <div class="form-group">
                 <label>强制刷新:</label>
-                <input v-model="searchForm.refresh" type="checkbox" class="form-checkbox" />
+                <Checkbox v-model="searchForm.refresh">强制刷新缓存</Checkbox>
               </div>
             </div>
 
             <div class="form-actions">
-              <button @click="testSearchAPI" class="test-button" :disabled="searchLoading">
+              <Button @click="testSearchAPI" :disabled="searchLoading">
                 <span class="button-icon">{{ searchLoading ? '⏳' : '🚀' }}</span>
                 {{ searchLoading ? '请求中...' : '发送请求' }}
-              </button>
-              <button @click="clearSearchForm" class="clear-button">
+              </Button>
+              <Button variant="outline" @click="clearSearchForm">
                 <span class="button-icon">🧹</span>
                 清空表单
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -207,7 +179,7 @@
             <h4>请求预览:</h4>
             <div class="code-block">
               <pre><code>{{ generateSearchRequest() }}</code></pre>
-              <button @click="copyToClipboard(generateSearchRequest())" class="copy-btn">📋</button>
+              <Button variant="outline" size="sm" class="copy-btn" @click="copyToClipboard(generateSearchRequest())">📋</Button>
             </div>
           </div>
 
@@ -221,7 +193,7 @@
             </div>
             <div class="code-block response-body">
               <pre><code>{{ JSON.stringify(searchResponse.data, null, 2) }}</code></pre>
-              <button @click="copyToClipboard(JSON.stringify(searchResponse.data, null, 2))" class="copy-btn">📋</button>
+              <Button variant="outline" size="sm" class="copy-btn" @click="copyToClipboard(JSON.stringify(searchResponse.data, null, 2))">📋</Button>
             </div>
           </div>
         </div>
@@ -262,21 +234,17 @@
           <div class="debug-form">
             <div class="form-group">
               <label>接口类型:</label>
-              <select v-model="authMethod" class="form-select">
-                <option value="login">登录 - /api/auth/login</option>
-                <option value="verify">验证 - /api/auth/verify</option>
-                <option value="logout">登出 - /api/auth/logout</option>
-              </select>
+              <Select v-model="authMethod" :options="AUTH_METHOD_OPTIONS" />
             </div>
 
             <div v-if="authMethod === 'login'" class="form-row">
               <div class="form-group">
                 <label>用户名 *:</label>
-                <input v-model="authForm.username" class="form-input" placeholder="输入用户名" />
+                <Input v-model="authForm.username" placeholder="输入用户名" />
               </div>
               <div class="form-group">
                 <label>密码 *:</label>
-                <input v-model="authForm.password" type="password" class="form-input" placeholder="输入密码" />
+                <Input v-model="authForm.password" type="password" placeholder="输入密码" />
               </div>
             </div>
 
@@ -293,14 +261,14 @@
             </div>
 
             <div class="form-actions">
-              <button @click="testAuthAPI" class="test-button" :disabled="authLoading">
+              <Button @click="testAuthAPI" :disabled="authLoading">
                 <span class="button-icon">{{ authLoading ? '⏳' : '🚀' }}</span>
                 {{ authLoading ? '请求中...' : '发送请求' }}
-              </button>
-              <button @click="clearAuthForm" class="clear-button">
+              </Button>
+              <Button variant="outline" @click="clearAuthForm">
                 <span class="button-icon">🧹</span>
                 清空
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -309,7 +277,7 @@
             <h4>请求预览:</h4>
             <div class="code-block">
               <pre><code>{{ generateAuthRequest() }}</code></pre>
-              <button @click="copyToClipboard(generateAuthRequest())" class="copy-btn">📋</button>
+              <Button variant="outline" size="sm" class="copy-btn" @click="copyToClipboard(generateAuthRequest())">📋</Button>
             </div>
           </div>
 
@@ -323,7 +291,7 @@
             </div>
             <div class="code-block response-body">
               <pre><code>{{ JSON.stringify(authResponse.data, null, 2) }}</code></pre>
-              <button @click="copyToClipboard(JSON.stringify(authResponse.data, null, 2))" class="copy-btn">📋</button>
+              <Button variant="outline" size="sm" class="copy-btn" @click="copyToClipboard(JSON.stringify(authResponse.data, null, 2))">📋</Button>
             </div>
           </div>
         </div>
@@ -426,21 +394,19 @@
         <!-- 接口说明 -->
         <div class="desc-section">
           <h3 class="section-title">📝 接口说明</h3>
-          <p class="api-description">检查API服务是否正常运行，返回服务状态、可用频道列表、插件信息与存活观测。</p>
+          <p class="api-description">公开接口，仅返回服务状态与是否需要登录（<code>status</code>、<code>auth_enabled</code>）。频道、插件与存活观测等完整信息只对管理员开放：<code>GET /api/admin/health</code>（需管理员令牌，在管理后台「概览」中查看）。</p>
         </div>
 
-        <!-- 存活观测：哪些插件/频道失效，一眼看出 -->
-        <LivenessPanel />
 
         <!-- 在线调试 -->
         <div class="debug-section">
           <h3 class="section-title">🛠️ 在线调试</h3>
           <div class="debug-form">
             <div class="form-actions">
-              <button @click="testHealthAPI" class="test-button" :disabled="healthLoading">
+              <Button @click="testHealthAPI" :disabled="healthLoading">
                 <span class="button-icon">{{ healthLoading ? '⏳' : '🚀' }}</span>
                 {{ healthLoading ? '请求中...' : '发送请求' }}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -449,7 +415,7 @@
             <h4>请求预览:</h4>
             <div class="code-block">
               <pre><code>GET /api/health</code></pre>
-              <button @click="copyToClipboard('GET /api/health')" class="copy-btn">📋</button>
+              <Button variant="outline" size="sm" class="copy-btn" @click="copyToClipboard('GET /api/health')">📋</Button>
             </div>
           </div>
 
@@ -463,7 +429,7 @@
             </div>
             <div class="code-block response-body">
               <pre><code>{{ JSON.stringify(healthResponse.data, null, 2) }}</code></pre>
-              <button @click="copyToClipboard(JSON.stringify(healthResponse.data, null, 2))" class="copy-btn">📋</button>
+              <Button variant="outline" size="sm" class="copy-btn" @click="copyToClipboard(JSON.stringify(healthResponse.data, null, 2))">📋</Button>
             </div>
           </div>
         </div>
@@ -503,14 +469,9 @@
           <div class="auth-header-form">
             <div class="form-group">
               <label>Authorization Header:</label>
-              <div class="auth-input-wrapper">
-                <span class="auth-prefix">Bearer</span>
-                <input
-                  v-model="authToken"
-                  class="form-input auth-input"
-                  :placeholder="effectiveToken || (authEnabled ? '请先登录或在认证API调试获取token' : '留空即可，未启用认证')"
-                />
-              </div>
+              <Input v-model="authToken" :placeholder="effectiveToken || (authEnabled ? '请先登录或在认证API调试获取token' : '留空即可，未启用认证')">
+                <template #prefix><span class="auth-prefix">Bearer</span></template>
+              </Input>
               <p class="auth-hint">
                 {{ tokenStatus }}
               </p>
@@ -546,20 +507,12 @@
           <div class="debug-form">
             <div class="form-group">
               <label>view_token:</label>
-              <input
-                v-model="checkForm.view_token"
-                class="form-input"
-                placeholder="可选，用于区分当前视图批次"
-              />
+              <Input v-model="checkForm.view_token" placeholder="可选，用于区分当前视图批次" />
             </div>
 
             <div class="form-group">
               <label>proxy_url:</label>
-              <input
-                v-model="checkForm.proxy_url"
-                class="form-input"
-                placeholder="可选，如 socks5://127.0.0.1:1080"
-              />
+              <Input v-model="checkForm.proxy_url" placeholder="可选，如 socks5://127.0.0.1:1080" />
               <p class="auth-hint">
                 💡 仅影响本次链接检测请求，支持 http://、https://、socks5://、socks5h://；未填写时使用后端默认代理配置
               </p>
@@ -575,51 +528,34 @@
                 >
                   <div class="check-item-head">
                     <span class="check-item-title">检测项 {{ index + 1 }}</span>
-                    <button
-                      v-if="checkForm.items.length > 1"
-                      type="button"
-                      class="remove-item-button"
-                      @click="removeCheckItem(index)"
-                    >
+                    <Button variant="ghost" size="sm" class="text-red-500" v-if="checkForm.items.length > 1" @click="removeCheckItem(index)">
                       删除
-                    </button>
+                    </Button>
                   </div>
 
                   <div class="check-item-grid">
                     <div class="form-group">
                       <label>网盘类型 *</label>
-                      <select v-model="item.disk_type" class="form-select">
-                        <option v-for="type in detectableCloudTypes" :key="type.id" :value="type.id">
-                          {{ type.name }} ({{ type.id }})
-                        </option>
-                      </select>
+                      <Select v-model="item.disk_type" :options="detectableCloudTypeOptions" />
                     </div>
 
                     <div class="form-group check-item-url">
                       <label>链接 *</label>
-                      <input
-                        v-model="item.url"
-                        class="form-input"
-                        placeholder="输入完整分享链接"
-                      />
+                      <Input v-model="item.url" placeholder="输入完整分享链接" />
                     </div>
 
                     <div class="form-group">
                       <label>提取码</label>
-                      <input
-                        v-model="item.password"
-                        class="form-input"
-                        placeholder="可选，未拼进链接时可填写"
-                      />
+                      <Input v-model="item.password" placeholder="可选，未拼进链接时可填写" />
                     </div>
                   </div>
                 </div>
               </div>
 
               <div class="check-actions">
-                <button type="button" class="add-item-button" @click="addCheckItem">
+                <Button variant="outline" size="sm" @click="addCheckItem">
                   + 添加检测项
-                </button>
+                </Button>
                 <p class="auth-hint" style="margin: 0;">
                   💡 支持批量提交，常见状态为 `ok` / `bad` / `locked` / `uncertain`
                 </p>
@@ -627,14 +563,14 @@
             </div>
 
             <div class="form-actions">
-              <button @click="testCheckAPI" class="test-button" :disabled="checkLoading">
+              <Button @click="testCheckAPI" :disabled="checkLoading">
                 <span class="button-icon">{{ checkLoading ? '⏳' : '🚀' }}</span>
                 {{ checkLoading ? '请求中...' : '发送请求' }}
-              </button>
-              <button @click="clearCheckForm" class="clear-button">
+              </Button>
+              <Button variant="outline" @click="clearCheckForm">
                 <span class="button-icon">🧹</span>
                 清空表单
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -642,7 +578,7 @@
             <h4>请求预览:</h4>
             <div class="code-block">
               <pre><code>{{ generateCheckRequest() }}</code></pre>
-              <button @click="copyToClipboard(generateCheckRequest())" class="copy-btn">📋</button>
+              <Button variant="outline" size="sm" class="copy-btn" @click="copyToClipboard(generateCheckRequest())">📋</Button>
             </div>
           </div>
 
@@ -655,7 +591,7 @@
             </div>
             <div class="code-block response-body">
               <pre><code>{{ JSON.stringify(checkResponse.data, null, 2) }}</code></pre>
-              <button @click="copyToClipboard(JSON.stringify(checkResponse.data, null, 2))" class="copy-btn">📋</button>
+              <Button variant="outline" size="sm" class="copy-btn" @click="copyToClipboard(JSON.stringify(checkResponse.data, null, 2))">📋</Button>
             </div>
           </div>
         </div>
@@ -762,13 +698,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import axios from 'axios';
+import { Button, Checkbox, Input, Select, Tabs, Textarea, toast } from '@/components/ui';
+import { copyText } from '@/utils/clipboard';
 import SearchIcon from '@/components/icons/SearchIcon.vue';
 import LockIcon from '@/components/icons/LockIcon.vue';
 import HeartbeatIcon from '@/components/icons/HeartbeatIcon.vue';
 import BookIcon from '@/components/icons/BookIcon.vue';
-import LivenessPanel from '@/components/LivenessPanel.vue';
 import FilterIcon from '@/components/icons/FilterIcon.vue';
 
 // 当前激活的选项卡
@@ -781,6 +718,31 @@ const tabs = [
   { id: 'health', name: '健康检查', icon: HeartbeatIcon },
   { id: 'check', name: '链接检测', icon: FilterIcon },
   { id: 'general', name: '通用说明', icon: BookIcon }
+];
+
+const tabItems = tabs.map((tab) => ({ label: tab.name, value: tab.id, icon: tab.icon }));
+
+const SEARCH_METHOD_OPTIONS = [
+  { label: 'POST', value: 'POST' },
+  { label: 'GET', value: 'GET' }
+];
+
+const RESULT_TYPE_OPTIONS = [
+  { label: 'merge - 仅返回merged_by_type', value: 'merge' },
+  { label: 'all - 返回所有结果', value: 'all' },
+  { label: 'results - 仅返回results', value: 'results' }
+];
+
+const SOURCE_OPTIONS = [
+  { label: 'all - 全部来源', value: 'all' },
+  { label: 'tg - 仅Telegram', value: 'tg' },
+  { label: 'plugin - 仅插件', value: 'plugin' }
+];
+
+const AUTH_METHOD_OPTIONS = [
+  { label: '登录 - /api/auth/login', value: 'login' as const },
+  { label: '验证 - /api/auth/verify', value: 'verify' as const },
+  { label: '登出 - /api/auth/logout', value: 'logout' as const }
 ];
 
 // 搜索API参数配置
@@ -878,6 +840,11 @@ const cloudTypes = [
 const detectableCloudTypes = cloudTypes.filter((type) =>
   ['baidu', 'aliyun', 'quark', 'tianyi', 'uc', 'mobile', '115', 'xunlei', '123'].includes(type.id)
 );
+
+const detectableCloudTypeOptions = detectableCloudTypes.map((type) => ({
+  label: `${type.name} (${type.id})`,
+  value: type.id
+}));
 
 // 搜索表单数据
 const searchMethod = ref('POST');
@@ -1022,7 +989,7 @@ ${authHeader}`;
 // 测试搜索API
 const testSearchAPI = async () => {
   if (!searchForm.value.kw) {
-    alert('请输入搜索关键词');
+    toast.error('请输入搜索关键词');
     return;
   }
 
@@ -1060,7 +1027,7 @@ const testSearchAPI = async () => {
         try {
           payload.ext = JSON.parse(searchForm.value.ext);
         } catch (e) {
-          alert('扩展参数JSON格式错误');
+          toast.error('扩展参数JSON格式错误');
           return;
         }
       }
@@ -1068,7 +1035,7 @@ const testSearchAPI = async () => {
         try {
           payload.filter = JSON.parse(searchForm.value.filter);
         } catch (e) {
-          alert('过滤配置JSON格式错误');
+          toast.error('过滤配置JSON格式错误');
           return;
         }
       }
@@ -1178,13 +1145,13 @@ const testCheckAPI = async () => {
     .filter((item) => item.disk_type || item.url || item.password);
 
   if (!items.length) {
-    alert('请至少填写一个检测项');
+    toast.error('请至少填写一个检测项');
     return;
   }
 
   const hasInvalid = items.some((item) => !item.disk_type || !item.url);
   if (hasInvalid) {
-    alert('每个检测项都需要填写网盘类型和链接');
+    toast.error('每个检测项都需要填写网盘类型和链接');
     return;
   }
 
@@ -1234,6 +1201,9 @@ const testCheckAPI = async () => {
 };
 
 // 数据来源变化处理
+// 切换数据来源时清空不再适用的字段
+watch(() => searchForm.value.src, () => onSourceChange());
+
 const onSourceChange = () => {
   // 当切换到仅插件时，清空频道列表
   if (searchForm.value.src === 'plugin') {
@@ -1292,7 +1262,7 @@ const testAuthAPI = async () => {
     
     if (authMethod.value === 'login') {
       if (!authForm.value.username || !authForm.value.password) {
-        alert('请输入用户名和密码');
+        toast.error('请输入用户名和密码');
         authLoading.value = false;
         return;
       }
@@ -1372,88 +1342,10 @@ loadHealthStatus();
 
 // 复制到剪贴板（支持降级处理）
 const copyToClipboard = async (text: string) => {
-  let success = false;
-  
-  // 方法1: 尝试使用现代 Clipboard API (需要HTTPS)
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      success = true;
-    } catch (err) {
-      console.warn('Clipboard API 失败，尝试降级方案:', err);
-    }
-  }
-  
-  // 方法2: 降级使用传统 execCommand 方法 (兼容HTTP)
-  if (!success) {
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      textarea.style.left = '-9999px';
-      document.body.appendChild(textarea);
-      
-      textarea.select();
-      textarea.setSelectionRange(0, text.length);
-      
-      success = document.execCommand('copy');
-      document.body.removeChild(textarea);
-    } catch (err) {
-      console.error('复制失败:', err);
-    }
-  }
-  
-  if (success) {
-    // 创建临时的成功提示
-    const toast = document.createElement('div');
-    toast.textContent = '✅ 已复制到剪贴板!';
-    toast.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #059669;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      z-index: 10000;
-      font-size: 14px;
-      font-weight: 500;
-      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
-      animation: slideIn 0.3s ease-out;
-    `;
-    
-    // 添加CSS动画
-    if (!document.querySelector('#toast-styles')) {
-      const style = document.createElement('style');
-      style.id = 'toast-styles';
-      style.textContent = `
-        @keyframes slideIn {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOut {
-          from { transform: translateX(0); opacity: 1; }
-          to { transform: translateX(100%); opacity: 0; }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-    
-    document.body.appendChild(toast);
-    
-    // 3秒后移除
-    setTimeout(() => {
-      toast.style.animation = 'slideOut 0.3s ease-out';
-      setTimeout(() => {
-        if (toast.parentNode) {
-          toast.parentNode.removeChild(toast);
-        }
-      }, 300);
-    }, 3000);
+  if (await copyText(text)) {
+    toast.success('已复制到剪贴板');
   } else {
-    // 复制失败提示
-    alert('复制失败，请手动复制');
+    toast.error('复制失败，请手动复制');
   }
 };
 </script>
@@ -1557,46 +1449,6 @@ const copyToClipboard = async (text: string) => {
 .api-tabs::-webkit-scrollbar-thumb {
   background: hsl(var(--muted-foreground) / 0.3);
   border-radius: 3px;
-}
-
-.tab-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 1rem 1.5rem;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  color: hsl(var(--muted-foreground));
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.tab-button:hover {
-  color: hsl(var(--foreground));
-  background: hsl(var(--muted) / 0.3);
-}
-
-.tab-button.tab-active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
-  background: rgba(37, 99, 235, 0.05);
-}
-
-.tab-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.tab-name {
-  display: inline;
 }
 
 .api-section {
@@ -1750,75 +1602,10 @@ const copyToClipboard = async (text: string) => {
   gap: 2rem;
 }
 
-.form-input, .form-select, .form-textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-size: 1rem;
-  transition: border-color 0.2s ease;
-}
-
-.form-input:focus, .form-select:focus, .form-textarea:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-}
-
-.form-textarea {
-  min-height: 100px;
-  resize: vertical;
-  font-family: 'Monaco', 'Menlo', monospace;
-}
-
-.form-checkbox {
-  transform: scale(1.2);
-}
-
 .form-actions {
   display: flex;
   gap: 1rem;
   margin-top: 2rem;
-}
-
-.test-button, .clear-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.test-button {
-  background: #2563eb;
-  color: white;
-  border: 1px solid #1d4ed8;
-}
-
-.test-button:hover:not(:disabled) {
-  background: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(29, 78, 216, 0.3);
-}
-
-.test-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.clear-button {
-  background: hsl(var(--secondary));
-  color: hsl(var(--secondary-foreground));
-}
-
-.clear-button:hover {
-  background: hsl(var(--secondary) / 0.8);
 }
 
 .button-icon {
@@ -1858,19 +1645,8 @@ const copyToClipboard = async (text: string) => {
 
 .copy-btn {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: #2563eb;
-  border: 1px solid hsl(var(--border));
-  border-radius: 4px;
-  padding: 0.5rem;
-  cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-}
-
-.copy-btn:hover {
-  background: hsl(var(--accent) / 0.8);
+  top: 0.75rem;
+  right: 0.75rem;
 }
 
 .response-section {
@@ -2178,40 +1954,12 @@ const copyToClipboard = async (text: string) => {
   border-radius: 8px;
 }
 
-.auth-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  padding: 0.25rem 0.5rem;
-  background: hsl(var(--background));
-  transition: border-color 0.2s ease;
-}
-
-.auth-input-wrapper:focus-within {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-}
-
 .auth-prefix {
   font-family: 'Monaco', 'Menlo', monospace;
   font-weight: 600;
   color: #2563eb;
   font-size: 0.875rem;
   white-space: nowrap;
-}
-
-.auth-input {
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0.5rem 0.5rem !important;
-  flex: 1;
-}
-
-.auth-input:focus {
-  outline: none;
-  box-shadow: none !important;
 }
 
 .auth-hint {
@@ -2286,33 +2034,6 @@ const copyToClipboard = async (text: string) => {
   flex-wrap: wrap;
 }
 
-.add-item-button,
-.remove-item-button {
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.add-item-button {
-  padding: 0.65rem 1rem;
-}
-
-.remove-item-button {
-  padding: 0.45rem 0.75rem;
-}
-
-.add-item-button:hover,
-.remove-item-button:hover {
-  border-color: #93c5fd;
-  color: #1d4ed8;
-  background: rgba(37, 99, 235, 0.04);
-}
-
 /* 响应式设计 */
 @media (max-width: 768px) {
   .api-docs {
@@ -2324,18 +2045,8 @@ const copyToClipboard = async (text: string) => {
   }
   
   /* 移动端tab优化：只显示图标 */
-  .tab-button {
-    padding: 0.75rem 1rem;
-    min-width: 56px;
-  }
   
-  .tab-name {
-    display: none;
-  }
   
-  .tab-icon {
-    margin: 0;
-  }
   
   .api-tabs {
     gap: 0.25rem;

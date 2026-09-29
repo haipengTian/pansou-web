@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import Card from '@/components/ui/Card.vue'
+import { Button, Card } from '@/components/ui'
 
 // 定义Props
 interface Props {
@@ -44,16 +44,20 @@ const openExternalLink = (e: MouseEvent) => {
       <div class="service-info">
         <div class="service-header">
           <h3 class="service-name">{{ name }}</h3>
-          <button 
-            v-if="externalLink" 
-            @click="openExternalLink"
+          <Button
+            v-if="externalLink"
+            variant="outline"
+            size="sm"
+            icon
             class="external-link-btn"
             title="访问官网"
+            aria-label="访问官网"
+            @click="openExternalLink"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
             </svg>
-          </button>
+          </Button>
         </div>
         <p class="service-description">{{ description }}</p>
         <div class="service-status">
@@ -135,24 +139,9 @@ const openExternalLink = (e: MouseEvent) => {
 }
 
 .external-link-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.25rem;
-  background: transparent;
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.375rem;
-  color: hsl(var(--muted-foreground));
-  cursor: pointer;
-  transition: all 0.2s ease;
+  width: 1.75rem;
+  height: 1.75rem;
   flex-shrink: 0;
-}
-
-.external-link-btn:hover {
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-  border-color: hsl(var(--primary));
-  transform: translateY(-1px);
 }
 
 .service-description {

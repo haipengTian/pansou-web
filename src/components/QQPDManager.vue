@@ -1,10 +1,8 @@
 <script setup lang="ts">
+import { Button, Card, Input, Link, Textarea, confirmDialog } from '@/components/ui';
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import * as qqpdApi from '@/api/qqpd'
 import type { QQPDStatus, QQPDSearchResult } from '@/types/qqpd'
-import Button from '@/components/ui/Button.vue'
-import Card from '@/components/ui/Card.vue'
-import Input from '@/components/ui/Input.vue'
 
 // 定义事件
 const emit = defineEmits<{
@@ -301,7 +299,7 @@ const handleRefreshQRCode = async () => {
 
 const handleLogout = async () => {
   if (!currentHash.value) return
-  if (!confirm('确定要退出登录吗？')) return
+  if (!(await confirmDialog({ title: '请确认', message: '确定要退出登录吗？' }))) return
   
   try {
     const response = await qqpdApi.logout(currentHash.value)
@@ -318,10 +316,10 @@ const handleLogout = async () => {
 }
 
 // 删除此账号
-const handleDeleteAccount = () => {
+const handleDeleteAccount = async () => {
   if (!selectedUser.value) return
   
-  if (confirm(`确定要删除账号 ${selectedUser.value.qq_masked || selectedUser.value.qq_number} 吗？\n\n这将删除本地保存的配置信息。`)) {
+  if ((await confirmDialog({ title: '请确认', message: `确定要删除账号 ${selectedUser.value.qq_masked || selectedUser.value.qq_number} 吗？\n\n这将删除本地保存的配置信息。`, danger: true, confirmText: '删除' }))) {
     removeUser(selectedUser.value.hash)
     handleBackToList()
     showAlertMessage('账号已删除', 'success')
@@ -495,12 +493,12 @@ const copyHashToClipboard = async () => {
     <!-- 用户列表视图 -->
     <div v-if="currentView === 'list'" class="user-list-view">
       <!-- 返回按钮 -->
-      <button @click="emit('back-to-center')" class="back-button mb-6">
+      <Button variant="ghost" size="sm" class="back-button mb-6" @click="emit('back-to-center')">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
         <span>返回账号管理中心</span>
-      </button>
+      </Button>
       
       <div class="header-section mb-8">
         <h1 class="text-3xl font-bold mb-2">QQ频道管理</h1>
@@ -554,16 +552,12 @@ const copyHashToClipboard = async () => {
     <!-- 添加QQ号视图 -->
     <div v-else-if="currentView === 'add'" class="add-view">
       <!-- 返回按钮 -->
-      <button 
-        v-if="savedUsers.length === 0"
-        @click="emit('back-to-center')" 
-        class="back-button mb-6"
-      >
+      <Button variant="ghost" size="sm" class="back-button mb-6" v-if="savedUsers.length === 0" @click="emit('back-to-center')">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
         <span>返回账号管理中心</span>
-      </button>
+      </Button>
       
       <div class="max-w-md mx-auto">
         <Card>
@@ -620,20 +614,16 @@ const copyHashToClipboard = async () => {
     <div v-else-if="currentView === 'manage'" class="manage-view">
       <!-- 顶部操作栏 -->
       <div class="flex items-center justify-between mb-6">
-        <button @click="handleBackToList" class="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+        <Button variant="ghost" size="sm" class="gap-2 text-muted-foreground" @click="handleBackToList">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
           <span>返回列表</span>
-        </button>
+        </Button>
         
-        <button 
-          v-if="selectedUser"
-          @click="handleDeleteAccount" 
-          class="text-red-500 hover:text-red-600 text-sm transition-colors"
-        >
+        <Button variant="ghost" size="sm" class="text-red-500" v-if="selectedUser" @click="handleDeleteAccount">
           删除此账号
-        </button>
+        </Button>
       </div>
       
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -711,18 +701,12 @@ const copyHashToClipboard = async () => {
                   <span>频道管理</span>
                   <span class="text-sm text-muted-foreground font-normal">({{ status.channel_count }} 个)</span>
                 </h3>
-                <a 
-                  href="https://github.com/fish2018/pansou/issues/4" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  class="channel-link"
-                  title="查看更多频道配置"
-                >
+                <Link href="https://github.com/fish2018/pansou/issues/4" class="channel-link" title="查看更多频道配置" external>
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                   </svg>
                   <span class="link-text">更多频道</span>
-                </a>
+                </Link>
               </div>
               
               <div v-if="!isLoggedIn" class="text-center py-8 text-muted-foreground">
@@ -736,16 +720,9 @@ const copyHashToClipboard = async () => {
                 <div class="text-sm text-muted-foreground">
                   每行一个频道号或链接，支持自动识别
                 </div>
-                <textarea 
-                  v-model="channelsText" 
-                  rows="10"
-                  class="channel-textarea"
-                  placeholder="pd97631607
+                <Textarea v-model="channelsText" :rows="10" placeholder="pd97631607
 languan8K115
-https://pd.qq.com/g/m250319e25"
-                  @focus="isEditingChannels = true"
-                  @blur="isEditingChannels = false"
-                />
+https://pd.qq.com/g/m250319e25" @focus="isEditingChannels = true" @blur="isEditingChannels = false" monospace resize="none" />
                 <Button @click="handleSaveChannels" class="save-channels-button">
                   💾 保存配置
                 </Button>
@@ -774,15 +751,12 @@ https://pd.qq.com/g/m250319e25"
                 <div class="p-4 bg-muted/30 rounded-lg border border-border">
                   <div class="flex items-center justify-between mb-3">
                     <div class="text-sm text-muted-foreground font-medium">当前Hash</div>
-                    <button 
-                      @click="copyHashToClipboard"
-                      class="flex items-center gap-1 px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors"
-                    >
+                    <Button variant="secondary" size="sm" class="gap-1 text-xs text-primary" @click="copyHashToClipboard">
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                       </svg>
                       <span>复制</span>
-                    </button>
+                    </Button>
                   </div>
                   <div class="font-mono text-sm text-foreground leading-relaxed break-all">{{ currentHash }}</div>
                 </div>
@@ -1059,58 +1033,7 @@ https://pd.qq.com/g/m250319e25"
 }
 
 /* 频道链接 */
-.channel-link {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  background: transparent;
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.375rem;
-  color: hsl(var(--muted-foreground));
-  text-decoration: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.channel-link:hover {
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-  border-color: hsl(var(--primary));
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px hsl(var(--primary) / 0.3);
-}
-
-.channel-link .link-text {
-  white-space: nowrap;
-}
-
 /* 频道输入框 */
-.channel-textarea {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid hsl(var(--border));
-  border-radius: 8px;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family: ui-monospace, monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  resize: none;
-  transition: all 0.2s ease;
-}
-
-.channel-textarea:focus {
-  outline: none;
-  border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
-}
-
-.channel-textarea::placeholder {
-  color: hsl(var(--muted-foreground));
-}
-
 /* 搜索卡片高度控制 */
 .search-card {
   height: fit-content;
@@ -1280,26 +1203,6 @@ https://pd.qq.com/g/m250319e25"
   }
 }
 
-/* 返回按钮 */
-.back-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  color: hsl(var(--muted-foreground));
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.back-button:hover {
-  background: hsl(var(--accent));
-  color: hsl(var(--accent-foreground));
-  border-color: hsl(var(--accent));
-}
 
 /* 页面过渡动画 */
 .user-list-view,
