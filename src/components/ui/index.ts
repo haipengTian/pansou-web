@@ -1,10 +1,28 @@
 import { type Component } from 'vue';
 
-// UI组件导出
+// UI 组件库。业务代码只使用这里导出的组件，不直接写原生控件
+//（守卫测试见 src/__tests__/no-native-controls.spec.ts）。
+export { default as Badge } from './Badge.vue';
 export { default as Button } from './Button.vue';
-export { default as Input } from './Input.vue';
 export { default as Card } from './Card.vue';
+export { default as Checkbox } from './Checkbox.vue';
+export { default as CheckTag } from './CheckTag.vue';
+export { default as Empty } from './Empty.vue';
+export { default as Field } from './Field.vue';
+export { default as Input } from './Input.vue';
+export { default as Link } from './Link.vue';
+export { default as Modal } from './Modal.vue';
+export { default as Pressable } from './Pressable.vue';
+export { default as RadioGroup } from './RadioGroup.vue';
+export { default as Select } from './Select.vue';
+export { default as Spinner } from './Spinner.vue';
+export { default as Switch } from './Switch.vue';
+export { default as Table } from './Table.vue';
 export { default as Tabs } from './Tabs.vue';
+export { default as Textarea } from './Textarea.vue';
+export { confirmDialog, promptDialog } from './dialog';
+export { toast } from './toast';
+export type { SelectOption, TableColumn, TabItem, Tone } from './types';
 
 // 工具函数
 export function cn(...classes: string[]): string {
