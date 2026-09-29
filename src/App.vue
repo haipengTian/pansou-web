@@ -7,7 +7,7 @@ import ResultTabs from '@/components/ResultTabs.vue';
 import SearchStats from '@/components/SearchStats.vue';
 import SearchConfig from '@/components/SearchConfig.vue';
 import LoginDialog from '@/components/LoginDialog.vue';
-import { Button, confirmDialog } from '@/components/ui';
+import { Button, Provider, SwitchTransition, confirmDialog } from '@/components/ui';
 import ExportResultsModal from '@/components/ExportResultsModal.vue';
 import { getDiskTypeName } from '@/utils/diskTypes';
 
@@ -1005,6 +1005,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <Provider>
   <div class="app-shell min-h-screen bg-background text-foreground transition-colors duration-300 flex flex-col">
     <!-- 登录对话框 -->
     <LoginDialog 
@@ -1100,6 +1101,8 @@ onUnmounted(() => {
       class="main-content container mx-auto px-4 py-8 flex-1"
       :class="{ 'search-main': currentPage === 'search' }"
     >
+      <!-- 页面切换动画；搜索页进场结束后按最终位置重算窄屏结果区高度 -->
+      <SwitchTransition @after-enter="syncMobileSearchLayout">
       <!-- 搜索页面 -->
       <div v-if="currentPage === 'search'" class="search-page">
         <!-- 搜索表单 -->
@@ -1169,6 +1172,7 @@ onUnmounted(() => {
       <div v-else-if="currentPage === 'docs'" class="docs-page">
         <ApiDocs />
       </div>
+      </SwitchTransition>
     </main>
     
     <!-- 页脚 -->
@@ -1180,6 +1184,7 @@ onUnmounted(() => {
       </div>
     </footer>
   </div>
+  </Provider>
 </template>
 
 <style scoped>

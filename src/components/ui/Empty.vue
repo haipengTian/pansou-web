@@ -1,40 +1,28 @@
 <script setup lang="ts">
-// 空状态
+import { NEmpty } from 'naive-ui';
+
+// 空状态（基于 NEmpty）
 defineProps<{ title?: string; description?: string }>();
 </script>
 
 <template>
-  <div class="ui-empty">
-    <div v-if="$slots.icon" class="ui-empty__icon"><slot name="icon" /></div>
-    <div v-if="title" class="ui-empty__title">{{ title }}</div>
-    <div v-if="description || $slots.default" class="ui-empty__desc"><slot>{{ description }}</slot></div>
-    <div v-if="$slots.action" class="ui-empty__action"><slot name="action" /></div>
-  </div>
+  <NEmpty class="ui-empty" :description="title || description">
+    <template v-if="$slots.icon" #icon><slot name="icon" /></template>
+    <template v-if="$slots.default || $slots.action" #extra>
+      <div v-if="title && (description || $slots.default)" class="ui-empty__desc"><slot>{{ description }}</slot></div>
+      <slot name="action" />
+    </template>
+  </NEmpty>
 </template>
 
 <style scoped>
 .ui-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 2.5rem 1rem;
-  text-align: center;
+  padding: 2rem 1rem;
 }
 
-.ui-empty__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 999px;
-  background: hsl(var(--muted));
+.ui-empty__desc {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
   color: hsl(var(--muted-foreground));
 }
-
-.ui-empty__title { font-size: 1rem; font-weight: 600; color: hsl(var(--foreground)); }
-.ui-empty__desc { font-size: 0.875rem; color: hsl(var(--muted-foreground)); }
-.ui-empty__action { margin-top: 0.5rem; }
 </style>

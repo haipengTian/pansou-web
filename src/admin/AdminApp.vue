@@ -12,7 +12,7 @@ import StatsPage from './pages/StatsPage.vue';
 import HistoryPage from './pages/HistoryPage.vue';
 import type { HistoryDrill } from './format';
 import { getSession, logout } from '@/api';
-import { Button, Card, Link } from '@/components/ui';
+import { Button, Card, Link, Provider, SwitchTransition } from '@/components/ui';
 import './admin.css';
 
 type PageKey = 'overview' | 'stats' | 'history' | 'plugins' | 'channels' | 'accounts' | 'users' | 'docs' | 'runtime';
@@ -94,6 +94,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <Provider>
   <div class="min-h-screen bg-background text-foreground">
     <LoginDialog
       :visible="state === 'login'"
@@ -139,6 +140,7 @@ onUnmounted(() => {
 
       <main class="admin-main">
         <div class="admin-mobile-title">{{ pageLabel }}</div>
+        <SwitchTransition>
         <OverviewPage v-if="page === 'overview'" />
         <StatsPage v-else-if="page === 'stats'" @drill="drillToHistory" />
         <HistoryPage v-else-if="page === 'history'" :drill="historyDrill" />
@@ -148,9 +150,11 @@ onUnmounted(() => {
         <UsersPage v-else-if="page === 'users'" :current-username="username" />
         <ApiDocs v-else-if="page === 'docs'" />
         <RuntimePage v-else-if="page === 'runtime'" />
+        </SwitchTransition>
       </main>
     </div>
   </div>
+  </Provider>
 </template>
 
 <style scoped>

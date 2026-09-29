@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import LoadingOrbit from '@/components/LoadingOrbit.vue';
-import { Button, Modal, Pressable, Tabs } from '@/components/ui';
+import { Button, Modal, Pressable, Tabs, directionOf, playEnter } from '@/components/ui';
 import { inspectVisibleLinks } from '@/api';
 import type {
   DetectionSettings,
@@ -40,8 +40,11 @@ const PAGE_SIZE = 20;
 // 当前加载的页码
 const currentPage = ref(1);
 const listContainerRef = ref<HTMLElement | null>(null);
+const tabContentRef = ref<HTMLElement | null>(null);
 // 当前查看详情的结果项
 const detailItem = ref<MergedResultItem | null>(null);
+// 打开状态与内容分开：关闭时保留内容，避免离场动画期间弹窗变空
+const detailOpen = ref(false);
 // 复制状态
 const linkCopyStatus = ref<'idle' | 'success' | 'error'>('idle');
 const passwordCopyStatus = ref<'idle' | 'success' | 'error'>('idle');
@@ -381,10 +384,17 @@ watch(
 // 监听标签页切换
 watch(
   () => activeTab.value,
-  () => {
+  (tab, previous) => {
     currentPage.value = 1;
     updateCurrentTabData();
     resetInspectionQueue();
+    // 用户切换网盘标签时，按切换方向从左 / 右滑入。列表元素不重新挂载（滚动与可见链接检测依赖它），
+    // 所以不用 SwitchTransition；首次自动选中标签时不播放
+    if (tab && previous) {
+      const indexOf = (value: string) => tabItems.value.findIndex((item) => item.value === value);
+      const direction = directionOf(indexOf(tab), indexOf(previous));
+      nextTick(() => playEnter(tabContentRef.value, direction));
+    }
   }
 );
 
@@ -572,11 +582,12 @@ const setCopyStatus = (type: 'link' | 'password', success: boolean) => {
 
 const openTitleDetail = (item: MergedResultItem) => {
   detailItem.value = item;
+  detailOpen.value = true;
   resetCopyStatus();
 };
 
 const closeTitleDetail = () => {
-  detailItem.value = null;
+  detailOpen.value = false;
   resetCopyStatus();
 };
 
@@ -702,7 +713,7 @@ onUnmounted(() => {
       </div>
       
       <!-- 内容区域 -->
-      <div class="tab-content">
+      <div ref="tabContentRef" class="tab-content">
         <div v-if="!currentTabData.length" class="empty-tab">
           <p>暂无数据</p>
         </div>
@@ -785,7 +796,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <Modal :open="!!detailItem" title="完整标题" size="lg" @close="closeTitleDetail">
+    <Modal :open="detailOpen" title="完整标题" size="lg" @close="closeTitleDetail">
       <template v-if="detailItem">
         <p class="detail-title">{{ detailItem.note }}</p>
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { Card, Table } from '@/components/ui';
+import { Alert, Card, Table } from '@/components/ui';
 import { getRuntime, errorMessage, type RuntimeInfo } from '@/api/admin';
 
 // 运行参数来自环境变量，修改需编辑部署的 .env 并重启容器。
@@ -70,7 +70,7 @@ onMounted(async () => {
         <div class="admin-page-desc">只读。这些参数来自部署的环境变量，修改需编辑 deploy/.env 并执行 ./update.sh。</div>
       </div>
     </div>
-    <div v-if="error" class="admin-notice error">{{ error }}</div>
+    <Alert v-if="error" tone="error">{{ error }}</Alert>
     <Card v-if="runtime" padding="sm">
       <Table :columns="COLUMNS" :data="rows" row-key="key" />
     </Card>

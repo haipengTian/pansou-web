@@ -1,84 +1,79 @@
 <script setup lang="ts" generic="Row extends Record<string, unknown>">
+import { computed, useSlots, type VNodeChild } from 'vue';
+import { NDataTable, NEmpty, type DataTableColumns } from 'naive-ui';
 import type { TableColumn } from './types';
 
-// 表格。单元格可用 #cell-<key>="{ row, value, index }" 插槽自定义。
+// 表格（基于 NDataTable）。单元格可用 #cell-<key>="{ row, value, index }" 插槽自定义；
+// maxHeight 设置后表体滚动并启用虚拟滚动，适合大数据量。
 const props = withDefaults(
   defineProps<{
     columns: TableColumn[];
     data: Row[];
     rowKey?: keyof Row | ((row: Row, index: number) => string | number);
     emptyText?: string;
-    showHeader?: boolean;
+    maxHeight?: number;
+    loading?: boolean;
   }>(),
-  { emptyText: '暂无数据', showHeader: true }
+  { emptyText: '暂无数据', loading: false }
 );
 
-const keyOf = (row: Row, index: number) => {
-  if (typeof props.rowKey === 'function') return props.rowKey(row, index);
+const slots = useSlots();
+
+const naiveColumns = computed<DataTableColumns<Row>>(() =>
+  props.columns.map((col) => ({
+    key: col.key,
+    title: col.title,
+    width: col.width,
+    align: col.align,
+    className: col.nowrap ? 'ui-table-col--nowrap' : undefined,
+    fixed: col.fixed,
+    render: (row: Row, index: number): VNodeChild => {
+      const slot = slots[`cell-${col.key}`];
+      if (slot) return slot({ row, value: row[col.key], index });
+      const value = row[col.key];
+      return value === undefined || value === null ? '' : String(value);
+    }
+  }))
+);
+
+// 有固定列时需要开启横向滚动，宽度按内容自适应
+const scrollX = computed(() => (props.columns.some((col) => col.fixed) ? 'max-content' : undefined));
+
+const keyOf = (row: Row): string | number => {
+  if (typeof props.rowKey === 'function') return props.rowKey(row, props.data.indexOf(row));
   if (props.rowKey) return String(row[props.rowKey]);
-  return index;
+  return props.data.indexOf(row);
 };
 </script>
 
 <template>
-  <div class="ui-table-wrap">
-    <table class="ui-table">
-      <colgroup>
-        <col v-for="col in columns" :key="col.key" :style="col.width ? { width: col.width } : undefined" />
-      </colgroup>
-      <thead v-if="showHeader">
-        <tr>
-          <th v-for="col in columns" :key="col.key" :style="{ textAlign: col.align || 'left' }">{{ col.title }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(row, index) in data" :key="keyOf(row, index)">
-          <td v-for="col in columns" :key="col.key" :style="{ textAlign: col.align || 'left' }">
-            <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]" :index="index">
-              {{ row[col.key] ?? '' }}
-            </slot>
-          </td>
-        </tr>
-        <tr v-if="data.length === 0">
-          <td class="ui-table__empty" :colspan="columns.length">{{ emptyText }}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  <NDataTable
+    class="ui-table"
+    :columns="naiveColumns"
+    :data="data"
+    :row-key="keyOf"
+    :bordered="false"
+    :single-line="true"
+    :loading="loading"
+    :max-height="maxHeight"
+    :scroll-x="scrollX"
+    :virtual-scroll="!!maxHeight && data.length > 100"
+    size="small"
+  >
+    <template #empty><NEmpty :description="emptyText" /></template>
+  </NDataTable>
 </template>
 
 <style scoped>
-.ui-table-wrap {
-  width: 100%;
-  overflow-x: auto;
+/* naive 的单元格默认 word-break: break-word，窄列会被压成一字一行；改回按词换行，表头不换行 */
+.ui-table :deep(.n-data-table-th),
+.ui-table :deep(.n-data-table-td) {
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
-.ui-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-}
-
-.ui-table th,
-.ui-table td {
-  padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid hsl(var(--border));
-  vertical-align: middle;
-}
-
-.ui-table th {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: hsl(var(--muted-foreground));
+.ui-table :deep(.n-data-table-th),
+.ui-table :deep(.ui-table-col--nowrap) {
   white-space: nowrap;
-}
-
-.ui-table tbody tr:hover td { background: hsl(var(--muted) / 0.5); }
-.ui-table tbody tr:last-child td { border-bottom: none; }
-
-.ui-table__empty {
-  padding: 2rem 0.75rem !important;
-  text-align: center !important;
-  color: hsl(var(--muted-foreground));
 }
 </style>

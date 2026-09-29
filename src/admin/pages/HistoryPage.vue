@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, watch, onMounted } from 'vue';
-import { Badge, Button, Card, Checkbox, Field, Input, Pagination, Pressable, Select, Table, Tabs, toast } from '@/components/ui';
+import { Badge, Button, Card, Checkbox, DateRangePicker, Field, Input, Pagination, Pressable, Select, SwitchTransition, Table, Tabs, toast } from '@/components/ui';
 import {
   listSearchHistory,
   listLoginHistory,
@@ -145,6 +145,13 @@ watch(tab, (value) => {
   }
 });
 
+// 日期范围与查询条件中的 from/to 互相转换
+const toRange = (q: { from?: string; to?: string }): [string, string] | null => (q.from && q.to ? [q.from, q.to] : null);
+const setRange = (q: { from?: string; to?: string }, range: [string, string] | null) => {
+  q.from = range?.[0] ?? '';
+  q.to = range?.[1] ?? '';
+};
+
 const asSearch = (row: unknown) => row as SearchRecord;
 const asLogin = (row: unknown) => row as LoginRecord;
 const text = (v: unknown) => String(v ?? '');
@@ -180,14 +187,20 @@ onMounted(() => {
 
     <Tabs v-model="tab" :tabs="TABS" />
 
-    <template v-if="tab === 'searches'">
+    <SwitchTransition variant="tab" :index="TABS.findIndex((t) => t.value === tab)">
+    <div v-if="tab === 'searches'" class="history-panel">
       <Card padding="sm">
         <form class="filter-grid" @submit.prevent="querySearches">
           <Field label="用户名"><Input v-model="searchQuery.username" size="sm" placeholder="精确匹配" /></Field>
           <Field label="关键词"><Input v-model="searchQuery.keyword" size="sm" placeholder="模糊匹配" /></Field>
           <Field label="IP"><Input v-model="searchQuery.ip" size="sm" placeholder="完整 IP" /></Field>
-          <Field label="开始日期"><Input v-model="searchQuery.from" type="date" size="sm" /></Field>
-          <Field label="结束日期"><Input v-model="searchQuery.to" type="date" size="sm" /></Field>
+          <Field label="日期范围" class="filter-wide">
+            <DateRangePicker
+              size="sm"
+              :model-value="toRange(searchQuery)"
+              @update:model-value="setRange(searchQuery, $event)"
+            />
+          </Field>
           <div class="filter-actions">
             <Checkbox v-model="searchQuery.zero_only">仅零结果</Checkbox>
             <Button type="submit" size="sm" :loading="searchLoading">查询</Button>
@@ -235,16 +248,21 @@ onMounted(() => {
           :total="searchTotal"
         />
       </Card>
-    </template>
+    </div>
 
-    <template v-else>
+    <div v-else class="history-panel">
       <Card padding="sm">
         <form class="filter-grid" @submit.prevent="queryLogins">
           <Field label="用户名"><Input v-model="loginQuery.username" size="sm" placeholder="精确匹配" /></Field>
           <Field label="IP"><Input v-model="loginQuery.ip" size="sm" placeholder="完整 IP" /></Field>
           <Field label="结果"><Select v-model="loginQuery.success" size="sm" :options="LOGIN_RESULT_OPTIONS" /></Field>
-          <Field label="开始日期"><Input v-model="loginQuery.from" type="date" size="sm" /></Field>
-          <Field label="结束日期"><Input v-model="loginQuery.to" type="date" size="sm" /></Field>
+          <Field label="日期范围" class="filter-wide">
+            <DateRangePicker
+              size="sm"
+              :model-value="toRange(loginQuery)"
+              @update:model-value="setRange(loginQuery, $event)"
+            />
+          </Field>
           <div class="filter-actions">
             <Button type="submit" size="sm" :loading="loginLoading">查询</Button>
             <Button variant="outline" size="sm" @click="resetLogins">重置</Button>
@@ -271,16 +289,28 @@ onMounted(() => {
           :total="loginTotal"
         />
       </Card>
-    </template>
+    </div>
+    </SwitchTransition>
   </div>
 </template>
 
 <style scoped>
+/* 标签页内容：与 .admin-page 相同的纵向间距 */
+.history-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
   gap: 0.75rem;
   align-items: end;
+}
+
+.filter-wide {
+  grid-column: span 2;
 }
 
 .filter-actions {

@@ -9,6 +9,12 @@ const isAdmin = window.location.pathname === '/admin' || window.location.pathnam
 const loadRoot = (): Promise<{ default: Component }> =>
   isAdmin ? import('./admin/AdminApp.vue') : import('./App.vue')
 
+// naive-ui 的样式插入在这个 meta 之前。动态追加到 head 末尾，保证排在 Tailwind 之后，
+// 否则 Tailwind 的 preflight 会覆盖 naive 按钮等组件的样式。
+const naiveStyleAnchor = document.createElement('meta')
+naiveStyleAnchor.name = 'naive-ui-style'
+document.head.appendChild(naiveStyleAnchor)
+
 loadRoot().then(({ default: Root }) => {
   createApp(Root).mount('#app')
 })

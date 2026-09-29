@@ -33,7 +33,8 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       environment: 'jsdom',
-      include: ['src/**/*.spec.ts']
+      include: ['src/**/*.spec.ts'],
+      setupFiles: ['src/test/setup.ts']
     },
     server: {
       host: 'localhost', // 确保使用localhost以支持Web Crypto API

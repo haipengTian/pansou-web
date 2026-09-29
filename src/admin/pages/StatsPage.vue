@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { BarChart, Button, Card, Pressable, RadioGroup, Table } from '@/components/ui';
+import { Alert, BarChart, Button, Card, Pressable, RadioGroup, Table } from '@/components/ui';
 import { getStatsOverview, errorMessage, type StatsOverview } from '@/api/admin';
 import { formatDateTime, formatPercent, ROUTE_GROUP_LABELS, type HistoryDrill } from '../format';
 
@@ -93,7 +93,7 @@ onMounted(load);
       </div>
     </div>
 
-    <div v-if="error" class="admin-notice error">{{ error }}</div>
+    <Alert v-if="error" tone="error">{{ error }}</Alert>
 
     <template v-if="overview">
       <div class="admin-grid">

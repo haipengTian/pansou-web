@@ -1,57 +1,39 @@
 <script setup lang="ts">
-// 卡片。title/description 可用属性或 header 插槽提供。
-defineProps<{ title?: string; description?: string; padding?: 'none' | 'sm' | 'default' }>();
+import { computed } from 'vue';
+import { NCard } from 'naive-ui';
+
+// 卡片（基于 NCard）。title/description 可用属性或 header 插槽提供，actions 插槽放在标题右侧。
+const props = defineProps<{ title?: string; description?: string; padding?: 'none' | 'sm' | 'default' }>();
+
+const size = computed(() => (props.padding === 'sm' ? 'small' : 'medium'));
+const contentStyle = computed(() => (props.padding === 'none' ? { padding: 0 } : undefined));
 </script>
 
 <template>
-  <div class="card" :class="padding ? `card--pad-${padding}` : undefined">
-    <div v-if="$slots.header || title" class="card-header">
+  <NCard class="ui-card" :size="size" :content-style="contentStyle" :bordered="true">
+    <template v-if="$slots.header || title" #header>
       <slot name="header">
-        <div class="ui-card__title-row">
-          <div>
-            <div class="ui-card__title">{{ title }}</div>
-            <div v-if="description" class="card-description">{{ description }}</div>
-          </div>
-          <div v-if="$slots.actions" class="ui-card__actions"><slot name="actions" /></div>
-        </div>
+        <div class="ui-card__title">{{ title }}</div>
+        <div v-if="description" class="ui-card__desc">{{ description }}</div>
       </slot>
-    </div>
-    <div class="card-content">
-      <slot />
-    </div>
-    <div v-if="$slots.footer" class="card-footer">
-      <slot name="footer" />
-    </div>
-  </div>
+    </template>
+    <template v-if="$slots.actions" #header-extra><slot name="actions" /></template>
+    <slot />
+    <template v-if="$slots.footer" #footer><slot name="footer" /></template>
+  </NCard>
 </template>
 
 <style scoped>
-.ui-card__title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
 .ui-card__title {
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.4;
 }
 
-.ui-card__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
+.ui-card__desc {
+  margin-top: 0.125rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: hsl(var(--muted-foreground));
 }
-
-.card--pad-none > .card-header,
-.card--pad-none > .card-content,
-.card--pad-none > .card-footer { padding: 0; }
-
-.card--pad-sm > .card-header { padding: 1rem 1rem 0.5rem; }
-.card--pad-sm > .card-content { padding: 0 1rem 1rem; }
-.card--pad-sm > .card-content:first-child { padding-top: 1rem; }
-.card--pad-sm > .card-footer { padding: 0 1rem 1rem; }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Card, Input, Link, confirmDialog } from '@/components/ui';
+import { Button, Card, SwitchTransition, Input, Link, confirmDialog } from '@/components/ui';
 import { ref, computed, onMounted } from 'vue'
 import * as gyingApi from '@/api/gying'
 import type { GyingStatus, GyingSearchResult } from '@/types/gying'
@@ -520,6 +520,7 @@ const copyHashToClipboard = async () => {
     </Transition>
     
     <!-- 用户列表视图 -->
+    <SwitchTransition>
     <div v-if="currentView === 'list'" class="user-list-view">
       <!-- 返回按钮 -->
       <Button variant="ghost" size="sm" class="back-button mb-6" @click="emit('back-to-center')">
@@ -936,6 +937,7 @@ const copyHashToClipboard = async () => {
         </div>
       </div>
     </div>
+    </SwitchTransition>
   </div>
 </template>
 
