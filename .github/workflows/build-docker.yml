@@ -58,6 +58,8 @@ jobs:
         working-directory: frontend
         run: |
           npm ci
+          # 组件单测与守卫测试（禁止业务代码直接使用原生控件）
+          npm test
           npm run build
 
       - name: 构建多架构后端

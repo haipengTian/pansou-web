@@ -18,7 +18,9 @@ services:
       PANSOU_HOST: "127.0.0.1"
       PANSOU_PORT: "8888"
       AUTH_ENABLED: "${AUTH_ENABLED:-true}"
-      AUTH_USERS: "${AUTH_USERS:?请在 deploy/.env 中设置 AUTH_USERS}"
+      # ADMIN_USERS 是管理后台的救急管理员账号（后台只读）；客户账号请在 /admin 中创建。
+      ADMIN_USERS: "${ADMIN_USERS:?请在 deploy/.env 中设置 ADMIN_USERS}"
+      AUTH_USERS: "${AUTH_USERS:-}"
       AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?请在 deploy/.env 中设置 AUTH_JWT_SECRET}"
 
     volumes:
