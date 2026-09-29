@@ -1,4 +1,6 @@
-// jsdom 缺少的浏览器 API（naive-ui 的表格、弹层等组件会用到）
+// jsdom 缺少的浏览器 API（naive-ui 的表格、弹层等组件会用到）。
+// 以 node 环境运行的测试（如构建产物检查）没有 window，直接跳过。
+const hasWindow = typeof window !== 'undefined';
 
 class ResizeObserverStub {
   observe() {}
@@ -6,11 +8,11 @@ class ResizeObserverStub {
   disconnect() {}
 }
 
-if (!('ResizeObserver' in window)) {
+if (hasWindow && !('ResizeObserver' in window)) {
   (window as unknown as { ResizeObserver: typeof ResizeObserverStub }).ResizeObserver = ResizeObserverStub;
 }
 
-if (!window.matchMedia) {
+if (hasWindow && !window.matchMedia) {
   window.matchMedia = (query: string) =>
     ({
       matches: false,
