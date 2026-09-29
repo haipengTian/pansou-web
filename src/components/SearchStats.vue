@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { MergedResults } from '@/types';
-import { Icons } from '@/components/ui';
+import { Button, Icons } from '@/components/ui';
 
 const props = defineProps<{
   total: number;
@@ -49,28 +49,33 @@ const diskTypeCount = computed(() => {
       </div>
 
       <div class="stats-actions">
-        <button
+        <Button
           v-if="canExport"
+          variant="outline"
+          size="sm"
           :disabled="loading"
-          @click="$emit('export-results')"
           title="批量导出"
           aria-label="批量导出"
           class="action-button action-button-label"
+          @click="$emit('export-results')"
         >
           <component :is="Icons.Download()" class="w-4 h-4 action-icon"/>
           <span class="action-label">批量导出</span>
-        </button>
+        </Button>
 
         <!-- 强制刷新按钮 -->
-        <button
+        <Button
+          variant="outline"
+          size="sm"
+          icon
           :disabled="loading"
-          @click="$emit('force-refresh')"
           title="强制刷新"
           aria-label="强制刷新"
           class="action-button"
+          @click="$emit('force-refresh')"
         >
-          <component :is="Icons.Refresh()" class="w-5 h-5 action-icon"/>
-        </button>
+          <component :is="Icons.Refresh()" class="w-4 h-4 action-icon"/>
+        </Button>
       </div>
     </div>
   </div>
@@ -113,40 +118,8 @@ const diskTypeCount = computed(() => {
   flex-shrink: 0;
 }
 
-.action-button {
-  appearance: none;
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  transition: all 0.2s ease;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.25rem;
-  border-radius: 9999px;
-}
-
-.action-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.action-button:focus-visible {
-  outline: 2px solid #93c5fd;
-  outline-offset: 2px;
-}
-
-.action-button:hover:not(:disabled) {
-  border-color: hsl(var(--border-hover));
-  background: hsl(var(--muted) / 0.55);
-}
-
 .action-button-label {
   gap: 0.5rem;
-  padding: 0 0.9rem;
-  font-size: 0.875rem;
-  font-weight: 600;
 }
 
 .action-label {
@@ -155,12 +128,6 @@ const diskTypeCount = computed(() => {
 
 .action-icon {
   flex-shrink: 0;
-}
-
-.stats-actions .action-button:last-child {
-  width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
 }
 
 @media (max-width: 768px) {
@@ -224,11 +191,8 @@ const diskTypeCount = computed(() => {
     margin-left: auto;
   }
 
-  .action-button,
-  .stats-actions .action-button:last-child {
+  .action-button {
     width: 2rem;
-    height: 2rem;
-    min-height: 2rem;
     padding: 0;
   }
 

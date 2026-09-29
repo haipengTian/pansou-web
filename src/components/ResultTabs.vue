@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import LoadingOrbit from '@/components/LoadingOrbit.vue';
+import { Button, Modal, Pressable, Tabs } from '@/components/ui';
 import { inspectVisibleLinks } from '@/api';
 import type {
   DetectionSettings,
@@ -579,12 +580,6 @@ const closeTitleDetail = () => {
   resetCopyStatus();
 };
 
-const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && detailItem.value) {
-    closeTitleDetail();
-  }
-};
-
 const copyDetailField = async (type: 'link' | 'password') => {
   if (!detailItem.value) return;
 
@@ -638,18 +633,18 @@ const formatDateTime = (dateTimeStr?: string) => {
 };
 
 // 获取网盘类型中文名称
+// 标签页数据：网盘类型 + 数量
+const tabItems = computed(() =>
+  diskTypes.value.map((type) => ({ label: getDiskName(type), value: type, count: props.mergedResults[type]?.length || 0 }))
+);
+
 const getDiskName = (type: string) => {
   return getDiskTypeName(type);
 };
 
-watch(detailItem, (newVal) => {
-  document.body.style.overflow = newVal ? 'hidden' : '';
-});
-
 onMounted(() => {
   hydrateHealthCache();
   reloadDetectionSettings();
-  window.addEventListener('keydown', handleKeydown);
   window.addEventListener('storage', reloadDetectionSettings);
   window.addEventListener('config:saved', reloadDetectionSettings);
   nextTick(() => {
@@ -658,10 +653,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown);
   window.removeEventListener('storage', reloadDetectionSettings);
   window.removeEventListener('config:saved', reloadDetectionSettings);
-  document.body.style.overflow = '';
   clearCopyFeedbackTimers();
   clearListPasswordFeedbackTimer();
   if (visibilityObserver) {
@@ -705,15 +698,7 @@ onUnmounted(() => {
     <div v-else-if="hasResults" class="results-container">
       <!-- 标签页 -->
       <div class="tabs">
-        <button 
-          v-for="type in diskTypes" 
-          :key="type"
-          class="tab-button"
-          :class="{ active: activeTab === type }"
-          @click="activeTab = type"
-        >
-          {{ getDiskName(type) }} ({{ mergedResults[type]?.length || 0 }})
-        </button>
+        <Tabs v-model="activeTab" :tabs="tabItems" variant="underline" />
       </div>
       
       <!-- 内容区域 -->
@@ -731,8 +716,8 @@ onUnmounted(() => {
           >
             <!-- 标题行（移动端单独占一行） -->
             <div class="result-header">
-              <button
-                type="button"
+              <Pressable
+                block
                 class="result-title-button"
                 :title="item.note"
                 @click="openTitleDetail(item)"
@@ -745,7 +730,7 @@ onUnmounted(() => {
                     :title="getIndicatorTitle(item)"
                   ></span>
                 </span>
-              </button>
+              </Pressable>
               <!-- 桌面端：数据来源+时间与标题同行 -->
               <div class="result-meta desktop-only" v-if="item.source || item.datetime">
                 <span v-if="item.source" class="result-source">{{ item.source }}</span>
@@ -764,9 +749,8 @@ onUnmounted(() => {
             <!-- 第二行：链接和提取码 -->
             <div class="result-row">
               <div class="result-link" @click="openLink(item.url)">{{ item.url }}</div>
-              <button
+              <Pressable
                 v-if="item.password"
-                type="button"
                 class="result-password"
                 :class="{
                   copied: getListPasswordStatus(item, index) === 'success',
@@ -783,7 +767,7 @@ onUnmounted(() => {
                 <template v-else>
                   提取码: <span class="password-value">{{ item.password }}</span>
                 </template>
-              </button>
+              </Pressable>
             </div>
           </div>
           
@@ -801,78 +785,46 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <Teleport to="body">
-      <Transition name="detail-fade">
-        <div v-if="detailItem" class="detail-overlay" @click="closeTitleDetail">
-          <div class="detail-dialog" @click.stop>
-            <div class="detail-header">
-              <div class="detail-heading">
-                <p class="detail-label">完整标题</p>
-                <h3 class="detail-title">{{ detailItem.note }}</h3>
-              </div>
-              <button
-                type="button"
-                class="detail-close"
-                aria-label="关闭标题详情"
-                @click="closeTitleDetail"
-              >
-                <svg class="detail-close-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-            </div>
+    <Modal :open="!!detailItem" title="完整标题" size="lg" @close="closeTitleDetail">
+      <template v-if="detailItem">
+        <p class="detail-title">{{ detailItem.note }}</p>
 
-            <div v-if="detailItem.source || detailItem.datetime" class="detail-meta">
-              <span v-if="detailItem.source" class="result-source">{{ detailItem.source }}</span>
-              <span v-if="detailItem.source && detailItem.datetime" class="meta-separator">·</span>
-              <span v-if="detailItem.datetime" class="result-date">{{ formatDateTime(detailItem.datetime) }}</span>
-            </div>
-
-            <div class="detail-actions">
-              <button
-                type="button"
-                class="detail-copy-btn"
-                :class="{
-                  success: linkCopyStatus === 'success',
-                  error: linkCopyStatus === 'error'
-                }"
-                @click="copyDetailField('link')"
-              >
-                {{ getCopyButtonText('link') }}
-              </button>
-
-              <button
-                v-if="detailItem.password"
-                type="button"
-                class="detail-password-action"
-                :class="{
-                  success: passwordCopyStatus === 'success',
-                  error: passwordCopyStatus === 'error'
-                }"
-                @click="copyDetailField('password')"
-              >
-                <template v-if="passwordCopyStatus === 'idle'">
-                  <span class="detail-password-label">提取码:</span>
-                  <span class="detail-password-content">{{ detailItem.password }}</span>
-                </template>
-                <template v-else>
-                  {{ getDetailPasswordText() }}
-                </template>
-              </button>
-            </div>
-
-            <button
-              type="button"
-              class="detail-link-preview"
-              :title="detailItem.url"
-              @click="openLink(detailItem.url)"
-            >
-              {{ detailItem.url }}
-            </button>
-          </div>
+        <div v-if="detailItem.source || detailItem.datetime" class="detail-meta">
+          <span v-if="detailItem.source" class="result-source">{{ detailItem.source }}</span>
+          <span v-if="detailItem.source && detailItem.datetime" class="meta-separator">·</span>
+          <span v-if="detailItem.datetime" class="result-date">{{ formatDateTime(detailItem.datetime) }}</span>
         </div>
-      </Transition>
-    </Teleport>
+
+        <Pressable block class="detail-link-preview" :title="detailItem.url" @click="openLink(detailItem.url)">
+          {{ detailItem.url }}
+        </Pressable>
+      </template>
+
+      <template #footer>
+        <Button
+          v-if="detailItem?.password"
+          variant="outline"
+          size="sm"
+          class="detail-password-action"
+          :class="{ success: passwordCopyStatus === 'success', error: passwordCopyStatus === 'error' }"
+          @click="copyDetailField('password')"
+        >
+          <template v-if="passwordCopyStatus === 'idle'">
+            <span>提取码:</span>
+            <span class="detail-password-content">{{ detailItem.password }}</span>
+          </template>
+          <template v-else>{{ getDetailPasswordText() }}</template>
+        </Button>
+        <Button
+          size="sm"
+          class="detail-copy-btn"
+          :class="{ success: linkCopyStatus === 'success', error: linkCopyStatus === 'error' }"
+          @click="copyDetailField('link')"
+        >
+          {{ getCopyButtonText('link') }}
+        </Button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -950,42 +902,8 @@ onUnmounted(() => {
 }
 
 .tabs {
-  display: flex;
-  overflow-x: auto;
-  border-bottom: 1px solid #e5e7eb;
   background-color: #f9fafb;
   padding: 0 1rem;
-}
-
-.tab-button {
-  padding: 0.75rem 1rem;
-  white-space: nowrap;
-  font-size: 0.875rem;
-  color: #4b5563;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.2s ease;
-}
-
-.tab-button:hover {
-  color: #3b82f6;
-}
-
-.tab-button.active {
-  color: #3b82f6;
-  font-weight: 500;
-}
-
-.tab-button.active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: #3b82f6;
 }
 
 .tab-content {
@@ -1026,25 +944,6 @@ onUnmounted(() => {
   margin-bottom: 0;
 }
 
-.result-title-button {
-  appearance: none;
-  border: none;
-  background: transparent;
-  padding: 0;
-  margin: 0;
-  width: 100%;
-  min-width: 0;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-.result-title-button:focus-visible {
-  outline: 2px solid #93c5fd;
-  outline-offset: 2px;
-  border-radius: 0.25rem;
-}
 
 .result-title {
   display: block;
@@ -1183,10 +1082,6 @@ onUnmounted(() => {
 }
 
 .result-password {
-  appearance: none;
-  border: none;
-  background: transparent;
-  padding: 0;
   font-size: 0.75rem;
   color: #6b7280;
   margin-left: 0.75rem;
@@ -1197,12 +1092,6 @@ onUnmounted(() => {
 
 .result-password:hover {
   color: #4b5563;
-}
-
-.result-password:focus-visible {
-  outline: 2px solid #93c5fd;
-  outline-offset: 2px;
-  border-radius: 0.25rem;
 }
 
 .result-password.copied {
@@ -1225,90 +1114,13 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.detail-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(8px);
-}
-
-.detail-dialog {
-  width: min(100%, 640px);
-  max-height: min(80vh, 680px);
-  overflow-y: auto;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 1rem;
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.2);
-}
-
-.detail-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.25rem 1.25rem 0.75rem;
-}
-
-.detail-heading {
-  min-width: 0;
-}
-
-.detail-label {
-  margin: 0 0 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: #6b7280;
-}
-
 .detail-title {
-  margin: 0;
+  margin: 0 0 0.75rem;
   font-size: 1rem;
   line-height: 1.7;
   font-weight: 600;
-  color: #111827;
+  color: hsl(var(--foreground));
   word-break: break-word;
-}
-
-.detail-close {
-  appearance: none;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #6b7280;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 9999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.2s ease;
-}
-
-.detail-close:hover {
-  color: #111827;
-  border-color: #cbd5e1;
-  background: #f8fafc;
-}
-
-.detail-close:focus-visible,
-.detail-copy-btn:focus-visible,
-.detail-password-action:focus-visible,
-.detail-link-preview:focus-visible {
-  outline: 2px solid #93c5fd;
-  outline-offset: 2px;
-}
-
-.detail-close-icon {
-  width: 1rem;
-  height: 1rem;
 }
 
 .detail-meta {
@@ -1316,125 +1128,36 @@ onUnmounted(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.375rem;
-  padding: 0 1.25rem 1rem;
-}
-
-.detail-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0 1.25rem 0.875rem;
-  min-width: 0;
-}
-
-.detail-password-action {
-  appearance: none;
-  border: none;
-  background: transparent;
-  padding: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  min-width: 0;
-  color: #6b7280;
-}
-
-.detail-password-action:hover {
-  color: #047857;
-}
-
-.detail-password-action.success {
-  color: #059669;
-  padding: 0.3rem 0.7rem;
-  border-radius: 9999px;
-  background: #ecfdf5;
-  border: 1px solid #d1fae5;
-  line-height: 1;
-}
-
-.detail-password-action.error {
-  color: #dc2626;
-}
-
-.detail-copy-btn {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: #2563eb;
-  padding: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.detail-copy-btn:hover {
-  color: #1d4ed8;
-}
-
-.detail-copy-btn.success {
-  color: #059669;
-  padding: 0.3rem 0.7rem;
-  border-radius: 9999px;
-  background: #ecfdf5;
-  border: 1px solid #d1fae5;
-  line-height: 1;
-}
-
-.detail-copy-btn.error {
-  color: #dc2626;
-}
-
-.detail-password-label {
-  color: inherit;
-  flex-shrink: 0;
-}
-
-.detail-password-content {
-  color: #10b981;
-  max-width: 9rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  margin-bottom: 0.75rem;
 }
 
 .detail-link-preview {
-  appearance: none;
-  display: block;
-  width: calc(100% - 2.5rem);
-  margin: 0 1.25rem 1.25rem;
-  padding: 0;
-  text-align: left;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: #3b82f6;
+  color: hsl(var(--primary));
   font-size: 0.875rem;
-  line-height: 1.25rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: all 0.2s ease;
+  line-height: 1.5;
+  word-break: break-all;
 }
 
 .detail-link-preview:hover {
   text-decoration: underline;
 }
 
-.detail-fade-enter-active,
-.detail-fade-leave-active {
-  transition: opacity 0.2s ease;
+.detail-password-content {
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #059669;
 }
 
-.detail-fade-enter-from,
-.detail-fade-leave-to {
-  opacity: 0;
+.detail-password-action.success,
+.detail-copy-btn.success {
+  color: #059669;
+}
+
+.detail-password-action.error,
+.detail-copy-btn.error {
+  color: hsl(var(--destructive));
 }
 
 .loading-more {
@@ -1528,31 +1251,9 @@ onUnmounted(() => {
     padding: 0.75rem 0.5rem;
   }
   
-  .tab-button {
-    padding: 0.5rem 0.75rem;
+  .tabs :deep(.ui-tabs__trigger) {
     font-size: 0.75rem;
   }
 
-  .detail-dialog {
-    width: 100%;
-    max-height: 85vh;
-    border-radius: 1rem;
-  }
-
-  .detail-header {
-    padding: 1rem 1rem 0.75rem;
-  }
-
-  .detail-meta,
-  .detail-actions {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-
-  .detail-link-preview {
-    width: calc(100% - 2rem);
-    margin-left: 1rem;
-    margin-right: 1rem;
-  }
 }
 </style>

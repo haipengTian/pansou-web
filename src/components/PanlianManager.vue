@@ -1,10 +1,8 @@
 <script setup lang="ts">
+import { Button, Card, Input, Link, confirmDialog } from '@/components/ui';
 import { ref, computed, onMounted } from 'vue'
 import * as panlianApi from '@/api/panlian'
 import type { PanlianStatus, PanlianSearchResult } from '@/types/panlian'
-import Button from '@/components/ui/Button.vue'
-import Card from '@/components/ui/Card.vue'
-import Input from '@/components/ui/Input.vue'
 
 const emit = defineEmits<{
   (e: 'back-to-center'): void
@@ -332,7 +330,7 @@ const handleConfirmEmail = async () => {
 
 const handleLogout = async () => {
   if (!currentHash.value) return
-  if (!confirm('确定要退出登录吗？')) return
+  if (!(await confirmDialog({ title: '请确认', message: '确定要退出登录吗？' }))) return
 
   try {
     const response = await panlianApi.logout(currentHash.value)
@@ -346,9 +344,9 @@ const handleLogout = async () => {
   }
 }
 
-const handleDeleteAccount = () => {
+const handleDeleteAccount = async () => {
   if (!selectedUser.value) return
-  if (confirm(`确定要删除账号 ${selectedUser.value.username || selectedUser.value.hash.slice(0, 8)} 吗？`)) {
+  if ((await confirmDialog({ title: '请确认', message: `确定要删除账号 ${selectedUser.value.username || selectedUser.value.hash.slice(0, 8)} 吗？`, danger: true, confirmText: '删除' }))) {
     removeUser(selectedUser.value.hash)
     handleBackToList()
     showAlertMessage('账号已删除', 'success')
@@ -411,12 +409,12 @@ onMounted(() => {
     </Transition>
 
     <div v-if="currentView === 'list'" class="user-list-view">
-      <button @click="emit('back-to-center')" class="back-button mb-6">
+      <Button variant="ghost" size="sm" class="back-button mb-6" @click="emit('back-to-center')">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
         <span>返回账号管理中心</span>
-      </button>
+      </Button>
 
       <div class="header-section mb-8">
         <h1 class="text-3xl font-bold mb-2">盘链管理</h1>
@@ -466,16 +464,12 @@ onMounted(() => {
     </div>
 
     <div v-else-if="currentView === 'add'" class="add-view">
-      <button
-        v-if="savedUsers.length === 0"
-        @click="emit('back-to-center')"
-        class="back-button mb-6"
-      >
+      <Button variant="ghost" size="sm" class="back-button mb-6" v-if="savedUsers.length === 0" @click="emit('back-to-center')">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
         <span>返回账号管理中心</span>
-      </button>
+      </Button>
 
       <div class="max-w-md mx-auto">
         <Card>
@@ -529,20 +523,16 @@ onMounted(() => {
 
     <div v-else-if="currentView === 'manage'" class="manage-view">
       <div class="flex items-center justify-between mb-6">
-        <button @click="handleBackToList" class="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+        <Button variant="ghost" size="sm" class="gap-2 text-muted-foreground" @click="handleBackToList">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
           <span>返回列表</span>
-        </button>
+        </Button>
 
-        <button
-          v-if="selectedUser"
-          @click="handleDeleteAccount"
-          class="text-red-500 hover:text-red-600 text-sm transition-colors"
-        >
+        <Button variant="ghost" size="sm" class="text-red-500" v-if="selectedUser" @click="handleDeleteAccount">
           删除此账号
-        </button>
+        </Button>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -678,15 +668,12 @@ onMounted(() => {
                 <div class="p-4 bg-muted/30 rounded-lg border border-border">
                   <div class="flex items-center justify-between mb-3">
                     <div class="text-sm text-muted-foreground font-medium">当前Hash</div>
-                    <button
-                      @click="copyHashToClipboard"
-                      class="flex items-center gap-1 px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors"
-                    >
+                    <Button variant="secondary" size="sm" class="gap-1 text-xs text-primary" @click="copyHashToClipboard">
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                       </svg>
                       <span>复制</span>
-                    </button>
+                    </Button>
                   </div>
                   <div class="font-mono text-sm text-foreground leading-relaxed break-all">{{ currentHash }}</div>
                 </div>
@@ -809,14 +796,9 @@ onMounted(() => {
                         >
                           <div class="link-main">
                             <span class="link-type">{{ link.type }}</span>
-                            <a
-                              :href="link.url"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              class="link-url"
-                            >
+                            <Link :href="link.url" class="link-url" external>
                               {{ link.url }}
-                            </a>
+                            </Link>
                           </div>
 
                           <div
@@ -877,18 +859,6 @@ onMounted(() => {
   background: #fef2f2;
   color: #991b1b;
   border: 1px solid #fecaca;
-}
-
-.back-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: hsl(var(--muted-foreground));
-  transition: color 0.2s ease;
-}
-
-.back-button:hover {
-  color: hsl(var(--foreground));
 }
 
 .header-section {

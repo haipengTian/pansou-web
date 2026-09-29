@@ -16,6 +16,8 @@ ENV PANSOU_HOST=127.0.0.1
 # 数据目录统一配置（所有持久化数据都在/app/data下）
 ENV CACHE_PATH=/app/data/cache
 ENV LOG_PATH=/app/data/logs
+# 管理后台的设置与账号（settings.json、users.json）
+ENV PANSOU_DATA_DIR=/app/data/admin
 
 # 默认插件配置
 ENV ENABLED_PLUGINS=dyyjpro,duoduo,djgou,feikuai,gaoqing888,gying,hdmoli,haitunsou,hunhepan,ikantv,jutoushe,kkv,dy4k,libvio,lingjisp,lou1,melost,meitizy,miosou,nyaa,ouge,panlian,pansearch,qqpd,quark4k,quarksoo,quarktv,sousou,thepiratebay,ting77,wanou,weibo,xb6v,xiaokupan,xiaozhang,xiaoyu,yingso,yulinshufa,yunso,yunsou,zlxapp,zxzj,rrbt,quarkres,diduan,huban,labi,muou,shandian,zhizhen,clxiong,cyg,jsnoteclub,duanjuw,dyyj,nsgame,cldi,clmao,susu,u3c3,5266ys,dygang,leso,btbtlb,kpkuang,aipan,sopanya,hjzhencai,pan365,buerchen,erxiaopan,woniu

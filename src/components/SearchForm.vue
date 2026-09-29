@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import type { SearchParams } from '@/api';
 import type { HealthStatus } from '@/api';
 import type { FilterConfig } from '@/types';
-import { Button, Input, Icons } from '@/components/ui';
+import { Badge, Button, Field, Input, Icons } from '@/components/ui';
 import FilterIcon from '@/components/icons/FilterIcon.vue';
 
 const keyword = ref('');
@@ -136,103 +136,85 @@ const handleSearch = () => {
 <template>
   <div class="w-full max-w-content mx-auto">
     <div class="search-container">
-      <!-- 主搜索框 -->
-      <div class="relative w-full">
-        <div class="relative flex flex-row items-center w-full">
-          <div class="relative w-full">
-            <!-- 筛选按钮（最左侧） -->
-            <button
-              type="button"
-              @click="showAdvanced = !showAdvanced"
-              :class="[
-                'advanced-toggle-left',
-                showAdvanced && 'active',
-                (includeKeywords.trim() || excludeKeywords.trim()) && 'has-filter'
-              ]"
-              title="高级筛选"
-            >
-              <FilterIcon :size="16" />
-            </button>
-            <input
-              v-model="keyword"
-              type="text"
-              placeholder="搜索资源、电影、音乐、软件..."
-              :disabled="loading"
-              @keydown.enter="handleSearch"
-              class="flex h-10 outline-none focus:outline-none rounded-md border bg-background px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 w-full text-center pl-12 pr-12 transition-all duration-300 border-primary/20 hover:border-primary/40 shadow-sm hover:shadow-md focus-visible:shadow-lg focus-visible:ring-primary/30 focus-visible:ring-offset-0 focus-visible:border-primary/60"
+      <!-- 主搜索框：左侧高级筛选开关，右侧提交 -->
+      <Input
+        v-model="keyword"
+        class="search-box"
+        align="center"
+        size="lg"
+        placeholder="搜索资源、电影、音乐、软件..."
+        :disabled="loading"
+        @enter="handleSearch"
+      >
+        <template #prefix>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon
+            :class="[
+              'advanced-toggle',
+              showAdvanced && 'active',
+              (includeKeywords.trim() || excludeKeywords.trim()) && 'has-filter'
+            ]"
+            title="高级筛选"
+            aria-label="高级筛选"
+            :aria-expanded="showAdvanced"
+            @click="showAdvanced = !showAdvanced"
+          >
+            <FilterIcon :size="16" />
+          </Button>
+        </template>
+        <template #suffix>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon
+            title="搜索"
+            aria-label="搜索"
+            :disabled="loading || !keyword.trim()"
+            @click="handleSearch"
+          >
+            <component
+              :is="loading ? Icons.Loading() : Icons.Send()"
+              :class="['w-4 h-4', loading && 'animate-spin']"
             />
-            <!-- 搜索按钮 -->
-            <button
-              type="button"
-              @click="handleSearch"
-              :disabled="loading || !keyword.trim()"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 w-10 absolute right-0 top-0 h-full rounded-l-none transition-all duration-300 border-0 hover:border hover:border-l-0 hover:border-primary/40 hover:bg-primary hover:text-primary-foreground hover:scale-[1.03]"
-            >
-              <component 
-                :is="loading ? Icons.Loading() : Icons.Send()" 
-                :class="[
-                  'w-4 h-4',
-                  loading && 'animate-spin'
-                ]"
-              />
-            </button>
-          </div>
-        </div>
-      </div>
-      
+          </Button>
+        </template>
+      </Input>
+
       <!-- 高级选项面板 -->
       <Transition name="slide-down">
         <div v-if="showAdvanced" class="advanced-panel">
           <div class="advanced-content">
-            <!-- 包含关键词 -->
-            <div class="filter-input-group">
-              <label class="filter-label">
-                <span class="label-text">包含关键词</span>
-                <span class="label-hint">结果中至少包含一个关键词 (OR关系)，多个关键词用空格或英文逗号(,)分隔</span>
-              </label>
-              <input
-                v-model="includeKeywords"
-                type="text"
-                placeholder="高码 hdr 4k"
-                class="filter-input"
-                @keydown.enter="handleSearch"
-              />
+            <Field label="包含关键词">
+              <template #extra>结果中至少包含一个关键词 (OR关系)，多个关键词用空格或英文逗号(,)分隔</template>
+              <Input v-model="includeKeywords" placeholder="高码 hdr 4k" @enter="handleSearch" />
               <div v-if="includeKeywords.trim()" class="filter-preview">
                 <span class="preview-label">包含:</span>
-                <span 
-                  v-for="(word, index) in includeKeywords.split(/[,\s]+/).filter(w => w.trim())" 
+                <Badge
+                  v-for="(word, index) in includeKeywords.split(/[,\s]+/).filter(w => w.trim())"
                   :key="index"
-                  class="filter-tag include"
+                  tone="success"
                 >
                   {{ word }}
-                </span>
+                </Badge>
               </div>
-            </div>
-            
-            <!-- 排除关键词 -->
-            <div class="filter-input-group">
-              <label class="filter-label">
-                <span class="label-text">排除关键词</span>
-                <span class="label-hint">结果中包含任意一个关键词就排除 (OR关系)，多个关键词用空格或英文逗号(,)分隔</span>
-              </label>
-              <input
-                v-model="excludeKeywords"
-                type="text"
-                placeholder="预告 花絮 枪版 CAM TS"
-                class="filter-input"
-                @keydown.enter="handleSearch"
-              />
+            </Field>
+
+            <Field label="排除关键词">
+              <template #extra>结果中包含任意一个关键词就排除 (OR关系)，多个关键词用空格或英文逗号(,)分隔</template>
+              <Input v-model="excludeKeywords" placeholder="预告 花絮 枪版 CAM TS" @enter="handleSearch" />
               <div v-if="excludeKeywords.trim()" class="filter-preview">
                 <span class="preview-label">排除:</span>
-                <span 
-                  v-for="(word, index) in excludeKeywords.split(/[,\s]+/).filter(w => w.trim())" 
+                <Badge
+                  v-for="(word, index) in excludeKeywords.split(/[,\s]+/).filter(w => w.trim())"
                   :key="index"
-                  class="filter-tag exclude"
+                  tone="danger"
                 >
                   {{ word }}
-                </span>
+                </Badge>
               </div>
-            </div>
+            </Field>
           </div>
         </div>
       </Transition>
@@ -248,48 +230,29 @@ const handleSearch = () => {
   width: 100%;
 }
 
-/* 高级选项切换按钮（左侧） */
-.advanced-toggle-left {
-  position: absolute;
-  left: 0;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 6px 0 0 6px;
-  background: transparent;
-  border: none;
-  border-right: 1px solid hsl(var(--border));
+.search-box :deep(.ui-input__prefix) {
+  padding-left: 0.25rem;
+}
+
+/* 高级筛选开关：展开时高亮，有生效条件时右上角显示圆点 */
+.advanced-toggle {
+  position: relative;
   color: hsl(var(--muted-foreground));
-  cursor: pointer;
-  transition: all 0.2s ease;
-  z-index: 10;
 }
 
-.advanced-toggle-left:hover {
-  background: hsl(var(--accent));
-  color: hsl(var(--accent-foreground));
-}
-
-.advanced-toggle-left.active {
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-}
-
-.advanced-toggle-left.has-filter {
-  background: hsl(var(--primary) / 0.1);
+.advanced-toggle.active,
+.advanced-toggle.has-filter {
   color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
 }
 
-.advanced-toggle-left.has-filter::after {
+.advanced-toggle.has-filter::after {
   content: '';
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 8px;
-  height: 8px;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
   background: hsl(var(--primary));
   border-radius: 50%;
   border: 2px solid hsl(var(--background));
@@ -310,93 +273,6 @@ const handleSearch = () => {
   gap: 1rem;
 }
 
-/* 过滤模式选择 */
-.filter-mode {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.mode-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: hsl(var(--background));
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex: 1;
-}
-
-.mode-label:has(.mode-radio:checked) {
-  background: hsl(var(--primary) / 0.08);
-  border-color: hsl(var(--primary));
-}
-
-.mode-label:hover {
-  border-color: hsl(var(--primary) / 0.5);
-}
-
-.mode-radio {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  accent-color: hsl(var(--primary));
-  margin: 0;
-}
-
-.mode-text {
-  font-weight: 500;
-  color: hsl(var(--foreground));
-  font-size: 0.875rem;
-}
-
-/* 关键词输入 */
-.filter-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.filter-label {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-}
-
-.label-text {
-  font-weight: 500;
-  color: hsl(var(--foreground));
-  font-size: 0.875rem;
-}
-
-.label-hint {
-  font-size: 0.75rem;
-  color: hsl(var(--muted-foreground));
-}
-
-.filter-input {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-}
-
-.filter-input:focus {
-  outline: none;
-  border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
-}
-
-.filter-input::placeholder {
-  color: hsl(var(--muted-foreground));
-}
-
 /* 过滤预览 */
 .filter-preview {
   display: flex;
@@ -414,139 +290,21 @@ const handleSearch = () => {
   color: hsl(var(--muted-foreground));
 }
 
-.filter-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.filter-tag.include {
-  background: hsl(142, 76%, 36% / 0.1);
-  color: hsl(142, 76%, 36%);
-  border: 1px solid hsl(142, 76%, 36% / 0.3);
-}
-
-.filter-tag.exclude {
-  background: hsl(0, 84%, 60% / 0.1);
-  color: hsl(0, 84%, 60%);
-  border: 1px solid hsl(0, 84%, 60% / 0.3);
-}
-
 /* 过渡动画 */
 .slide-down-enter-active,
 .slide-down-leave-active {
   transition: all 0.3s ease;
 }
 
-.slide-down-enter-from {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-
+.slide-down-enter-from,
 .slide-down-leave-to {
   opacity: 0;
   transform: translateY(-10px);
 }
 
-/* 响应式 */
 @media (max-width: 768px) {
   .advanced-panel {
     padding: 0.75rem;
   }
-  
-  .filter-mode {
-    flex-direction: column;
-  }
 }
-
-.search-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  width: 100%;
-  margin-bottom: 2rem;
-}
-
-.search-input-wrapper {
-  position: relative;
-  width: 100%;
-  flex: 1;
-}
-
-.search-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid #e5e7eb;
-  background-color: #fff;
-  color: #111827;
-  font-size: 1rem;
-  outline: none;
-  transition: all 0.2s ease;
-}
-
-.search-input::placeholder {
-  color: #9ca3af;
-}
-
-.search-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-}
-
-.search-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
-  background-color: #3b82f6;
-  color: #fff;
-  font-weight: 500;
-  font-size: 1rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.search-button:hover:not(:disabled) {
-  background-color: #2563eb;
-}
-
-.search-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.loading-spinner {
-  display: inline-block;
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top-color: #fff;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (min-width: 768px) {
-  .search-form {
-    flex-direction: row;
-    align-items: center;
-  }
-  
-  .search-button {
-    width: auto;
-    white-space: nowrap;
-  }
-}
-</style> 
+</style>

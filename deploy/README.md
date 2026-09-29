@@ -47,9 +47,11 @@ openssl rand -hex 32
 编辑 `.env`，至少设置：
 
 ```dotenv
-AUTH_USERS=admin:你的强密码
+ADMIN_USERS=admin:你的强密码
 AUTH_JWT_SECRET=上一步生成的随机字符串
 ```
+
+`ADMIN_USERS` 是管理后台的管理员；客户账号在后台「用户管理」中创建。
 
 启动：
 
@@ -109,6 +111,27 @@ https://sou.thpvip.xyz/
 
 云安全组需开放 TCP 80、443。80 只负责证书验证与跳转，网页实际走 443；不需要开放 9000，因为它仅监听 `127.0.0.1`。
 
+## 管理后台
+
+浏览器打开 `https://sou.thpvip.xyz/admin`，用 `ADMIN_USERS` 中的账号登录。后台可以：
+
+- **插件管理 / 频道与网盘类型**：修改后立即生效，无需重启；保存在数据卷的 `settings.json`。
+- **用户管理**：创建客户账号，禁用、改角色或重置密码（对应账号的旧登录会立即失效）。
+- **数据源账号**：qqpd、gying、panlian、weibo、woniu 等插件的账号配置，只有管理员可访问。
+- **概览 / 运行参数 / API 文档**：原先对所有访客可见，现在只在后台显示。
+
+客户访问 `https://sou.thpvip.xyz/` 登录后只能搜索，并在「筛选」页中勾选后台放开的频道、插件和网盘类型；
+请求中超出范围的参数会被服务端剔除。公开的 `/api/health` 只返回存活状态。
+
+`CHANNELS` 与 `ENABLED_PLUGINS` 只在第一次启动时写入 `settings.json`，之后请在后台修改。
+如需按环境变量重新生成，删除卷内的 `/app/data/admin/settings.json`（一体镜像）后重启容器。
+
+## 从未含管理后台的版本升级
+
+1. 在 `deploy/.env` 中新增 `ADMIN_USERS=管理员名:强密码`（否则 `./update.sh` 会在校验阶段报错，旧容器保持运行不受影响）。
+2. 原 `AUTH_USERS` 中的账号继续可用，身份为普通用户；也可以清空它，改在后台创建客户账号。
+3. 执行 `./update.sh`。首次启动会用当前的 `CHANNELS`、`ENABLED_PLUGINS` 生成后台设置，行为与升级前一致。
+
 ## 更新与回滚
 
 更新：
@@ -128,4 +151,4 @@ PANSOU_IMAGE=ghcr.io/haipengtian/pansou-web:sha-a1b2c3d
 
 ## 数据
 
-缓存、日志和可持久化插件数据保存在命名卷 `pansou-data`。更新或执行 `docker compose down` 不会删除它。只有执行 `docker compose down -v` 才会删除数据，请谨慎使用。
+缓存、日志、可持久化插件数据以及后台的设置与账号（`/app/data/admin/`）保存在命名卷 `pansou-data`。更新或执行 `docker compose down` 不会删除它。只有执行 `docker compose down -v` 才会删除数据，请谨慎使用。

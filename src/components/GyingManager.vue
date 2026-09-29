@@ -1,10 +1,8 @@
 <script setup lang="ts">
+import { Button, Card, Input, Link, confirmDialog } from '@/components/ui';
 import { ref, computed, onMounted } from 'vue'
 import * as gyingApi from '@/api/gying'
 import type { GyingStatus, GyingSearchResult } from '@/types/gying'
-import Button from '@/components/ui/Button.vue'
-import Card from '@/components/ui/Card.vue'
-import Input from '@/components/ui/Input.vue'
 import {
   DEFAULT_GYING_BASE_URL,
   getStoredGyingBaseURL,
@@ -370,7 +368,7 @@ const handleLogin = async () => {
 
 const handleLogout = async () => {
   if (!currentHash.value) return
-  if (!confirm('确定要退出登录吗？')) return
+  if (!(await confirmDialog({ title: '请确认', message: '确定要退出登录吗？' }))) return
   
   try {
     const response = await gyingApi.logout(currentHash.value)
@@ -387,10 +385,10 @@ const handleLogout = async () => {
 }
 
 // 删除此账号
-const handleDeleteAccount = () => {
+const handleDeleteAccount = async () => {
   if (!selectedUser.value) return
   
-  if (confirm(`确定要删除账号 ${selectedUser.value.username} 吗？\n\n这将删除本地保存的配置信息。`)) {
+  if ((await confirmDialog({ title: '请确认', message: `确定要删除账号 ${selectedUser.value.username} 吗？\n\n这将删除本地保存的配置信息。`, danger: true, confirmText: '删除' }))) {
     removeUser(selectedUser.value.hash)
     handleBackToList()
     showAlertMessage('账号已删除', 'success')
@@ -524,12 +522,12 @@ const copyHashToClipboard = async () => {
     <!-- 用户列表视图 -->
     <div v-if="currentView === 'list'" class="user-list-view">
       <!-- 返回按钮 -->
-      <button @click="emit('back-to-center')" class="back-button mb-6">
+      <Button variant="ghost" size="sm" class="back-button mb-6" @click="emit('back-to-center')">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
         <span>返回账号管理中心</span>
-      </button>
+      </Button>
       
       <div class="header-section mb-8">
         <h1 class="text-3xl font-bold mb-2">观影管理</h1>
@@ -595,16 +593,12 @@ const copyHashToClipboard = async () => {
     <!-- 添加用户视图 -->
     <div v-else-if="currentView === 'add'" class="add-view">
       <!-- 返回按钮 -->
-      <button 
-        v-if="savedUsers.length === 0"
-        @click="emit('back-to-center')" 
-        class="back-button mb-6"
-      >
+      <Button variant="ghost" size="sm" class="back-button mb-6" v-if="savedUsers.length === 0" @click="emit('back-to-center')">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
         <span>返回账号管理中心</span>
-      </button>
+      </Button>
       
       <div class="max-w-md mx-auto">
         <Card>
@@ -668,20 +662,16 @@ const copyHashToClipboard = async () => {
     <div v-else-if="currentView === 'manage'" class="manage-view">
       <!-- 顶部操作栏 -->
       <div class="flex items-center justify-between mb-6">
-        <button @click="handleBackToList" class="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+        <Button variant="ghost" size="sm" class="gap-2 text-muted-foreground" @click="handleBackToList">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
           <span>返回列表</span>
-        </button>
+        </Button>
         
-        <button 
-          v-if="selectedUser"
-          @click="handleDeleteAccount" 
-          class="text-red-500 hover:text-red-600 text-sm transition-colors"
-        >
+        <Button variant="ghost" size="sm" class="text-red-500" v-if="selectedUser" @click="handleDeleteAccount">
           删除此账号
-        </button>
+        </Button>
       </div>
       
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -698,24 +688,13 @@ const copyHashToClipboard = async () => {
               <div class="rounded-xl border border-border bg-muted/30 p-4">
                 <div class="site-header-row">
                   <div class="text-sm text-muted-foreground">当前站点</div>
-                  <button
-                    v-if="hasCurrentBaseURL"
-                    type="button"
-                    class="site-edit-button"
-                    :disabled="savingBaseURL"
-                    @click="handleToggleBaseURLEdit"
-                  >
+                  <Button variant="outline" size="sm" v-if="hasCurrentBaseURL" :disabled="savingBaseURL" @click="handleToggleBaseURLEdit">
                     {{ isEditingBaseURL ? '取消' : '编辑' }}
-                  </button>
+                  </Button>
                 </div>
-                <a
-                  :href="currentBaseURL"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="site-link"
-                >
+                <Link :href="currentBaseURL" class="site-link" external>
                   {{ currentBaseURL }}
-                </a>
+                </Link>
               </div>
 
               <div v-if="showBaseURLEditor">
@@ -836,15 +815,12 @@ const copyHashToClipboard = async () => {
                 <div class="p-4 bg-muted/30 rounded-lg border border-border">
                   <div class="flex items-center justify-between mb-3">
                     <div class="text-sm text-muted-foreground font-medium">当前Hash</div>
-                    <button 
-                      @click="copyHashToClipboard"
-                      class="flex items-center gap-1 px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors"
-                    >
+                    <Button variant="secondary" size="sm" class="gap-1 text-xs text-primary" @click="copyHashToClipboard">
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                       </svg>
                       <span>复制</span>
-                    </button>
+                    </Button>
                   </div>
                   <div class="font-mono text-sm text-foreground leading-relaxed break-all">{{ currentHash }}</div>
                 </div>
@@ -1222,30 +1198,6 @@ const copyHashToClipboard = async () => {
   margin-bottom: 0.75rem;
 }
 
-.site-edit-button {
-  flex-shrink: 0;
-  min-width: 3.5rem;
-  height: 2rem;
-  padding: 0 0.75rem;
-  border: 1px solid hsl(var(--border));
-  border-radius: 9999px;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-size: 0.75rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.site-edit-button:hover:not(:disabled) {
-  border-color: hsl(var(--primary));
-  color: hsl(var(--primary));
-}
-
-.site-edit-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .site-config-notice,
 .login-notice {
   border-radius: 0.75rem;
@@ -1317,26 +1269,6 @@ const copyHashToClipboard = async () => {
   }
 }
 
-/* 返回按钮 */
-.back-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  color: hsl(var(--muted-foreground));
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.back-button:hover {
-  background: hsl(var(--accent));
-  color: hsl(var(--accent-foreground));
-  border-color: hsl(var(--accent));
-}
 
 /* 页面过渡动画 */
 .user-list-view,
