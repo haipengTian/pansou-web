@@ -39,6 +39,7 @@
     </div>
 
     <!-- 搜索API文档 -->
+    <SwitchTransition variant="tab" :index="tabItems.findIndex((t) => t.value === activeTab)">
     <div v-if="activeTab === 'search'" class="api-section">
       <div class="api-header">
         <h2 class="api-title">🔍 搜索API</h2>
@@ -218,7 +219,7 @@
     </div>
 
     <!-- 认证API文档 -->
-    <div v-if="activeTab === 'auth'" class="api-section">
+    <div v-else-if="activeTab === 'auth'" class="api-section">
       <div class="api-header">
         <h2 class="api-title">🔐 认证API</h2>
         <div class="api-methods">
@@ -381,7 +382,7 @@
     </div>
 
     <!-- 健康检查API文档 -->
-    <div v-if="activeTab === 'health'" class="api-section">
+    <div v-else-if="activeTab === 'health'" class="api-section">
       <div class="api-header">
         <h2 class="api-title">🏥 健康检查API</h2>
         <div class="api-methods">
@@ -454,7 +455,7 @@
     </div>
 
     <!-- 链接检测API文档 -->
-    <div v-if="activeTab === 'check'" class="api-section">
+    <div v-else-if="activeTab === 'check'" class="api-section">
       <div class="api-header">
         <h2 class="api-title">🧪 链接检测API</h2>
         <div class="api-methods">
@@ -615,7 +616,7 @@
     </div>
 
     <!-- 通用说明 -->
-    <div v-if="activeTab === 'general'" class="api-section">
+    <div v-else-if="activeTab === 'general'" class="api-section">
       <div class="api-header">
         <h2 class="api-title">📖 通用说明</h2>
       </div>
@@ -694,13 +695,14 @@
         </div>
       </div>
     </div>
+    </SwitchTransition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import axios from 'axios';
-import { Button, Checkbox, Input, Select, Tabs, Textarea, toast } from '@/components/ui';
+import { Button, Checkbox, Input, Select, SwitchTransition, Tabs, Textarea, toast } from '@/components/ui';
 import { copyText } from '@/utils/clipboard';
 import SearchIcon from '@/components/icons/SearchIcon.vue';
 import LockIcon from '@/components/icons/LockIcon.vue';

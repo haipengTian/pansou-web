@@ -24,27 +24,6 @@
   margin-top: 0.25rem;
 }
 
-.admin-notice {
-  border-radius: 0.5rem;
-  padding: 0.6rem 0.9rem;
-  font-size: 0.875rem;
-}
-
-.admin-notice.error {
-  background: hsl(var(--destructive) / 0.08);
-  color: hsl(var(--destructive));
-}
-
-.admin-notice.success {
-  background: rgb(5 150 105 / 0.08);
-  color: #059669;
-}
-
-.admin-notice.info {
-  background: hsl(var(--muted));
-  color: hsl(var(--muted-foreground));
-}
-
 .admin-grid {
   display: grid;
   gap: 1rem;

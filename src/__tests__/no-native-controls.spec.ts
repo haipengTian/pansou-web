@@ -14,7 +14,8 @@ const RULES: { name: string; pattern: RegExp }[] = [
   { name: '原生控件标签', pattern: /<(button|input|select|textarea|table)(\s|>|$)/ },
   { name: '原生链接 <a>', pattern: /<a(\s|>|$)/ },
   { name: '渲染函数中的原生控件', pattern: /\bh\(\s*['"](button|input|select|textarea|table|a)['"]/ },
-  { name: '原生对话框', pattern: /(^|[^\w.$])(window\.)?(alert|confirm|prompt)\s*\(/ }
+  { name: '原生对话框', pattern: /(^|[^\w.$])(window\.)?(alert|confirm|prompt)\s*\(/ },
+  { name: '直接引用 naive-ui（应经由 @/components/ui）', pattern: /from\s+['"]naive-ui['"]/ }
 ];
 
 const collectFiles = (dir: string): string[] =>

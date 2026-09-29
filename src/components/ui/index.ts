@@ -1,18 +1,26 @@
 import { type Component } from 'vue';
 
-// UI 组件库。业务代码只使用这里导出的组件，不直接写原生控件
-//（守卫测试见 src/__tests__/no-native-controls.spec.ts）。
+// UI 组件库（底层基于 naive-ui，主题见 ./theme.ts）。业务代码只使用这里导出的组件，
+// 不直接写原生控件，也不直接引用 naive-ui（守卫测试见 src/__tests__/no-native-controls.spec.ts）。
+export { default as Alert } from './Alert.vue';
 export { default as Badge } from './Badge.vue';
+export { default as BarChart } from './BarChart.vue';
 export { default as Button } from './Button.vue';
 export { default as Card } from './Card.vue';
 export { default as Checkbox } from './Checkbox.vue';
+export { default as DateRangePicker } from './DateRangePicker.vue';
 export { default as CheckTag } from './CheckTag.vue';
 export { default as Empty } from './Empty.vue';
 export { default as Field } from './Field.vue';
 export { default as Input } from './Input.vue';
 export { default as Link } from './Link.vue';
 export { default as Modal } from './Modal.vue';
+export { default as Pagination } from './Pagination.vue';
 export { default as Pressable } from './Pressable.vue';
+export { default as Provider } from './Provider.vue';
+export { default as SwitchTransition } from './SwitchTransition.vue';
+export { directionOf, playEnter, prefersReducedMotion } from './motion';
+export type { SwitchDirection } from './motion';
 export { default as RadioGroup } from './RadioGroup.vue';
 export { default as Select } from './Select.vue';
 export { default as Spinner } from './Spinner.vue';

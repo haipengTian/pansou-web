@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Card, Input, Link, confirmDialog } from '@/components/ui';
+import { Button, Card, SwitchTransition, Input, Link, confirmDialog } from '@/components/ui';
 import { ref, computed, onMounted } from 'vue'
 import * as woniuApi from '@/api/woniu'
 import type { WoniuStatus, WoniuSearchResult } from '@/types/woniu'
@@ -367,6 +367,7 @@ onMounted(() => {
       </div>
     </Transition>
 
+    <SwitchTransition>
     <div v-if="currentView === 'list'" class="user-list-view">
       <Button variant="ghost" size="sm" class="back-button mb-6" @click="emit('back-to-center')">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -815,6 +816,7 @@ onMounted(() => {
         </div>
       </div>
     </div>
+    </SwitchTransition>
   </div>
 </template>
 

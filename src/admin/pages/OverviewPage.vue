@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import LivenessPanel from '@/components/LivenessPanel.vue';
-import { Badge, Card } from '@/components/ui';
+import { Alert, Badge, Card } from '@/components/ui';
 import { getAdminHealth, errorMessage, type AdminHealth } from '@/api/admin';
 
 const health = ref<AdminHealth | null>(null);
@@ -31,7 +31,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div v-if="error" class="admin-notice error">{{ error }}</div>
+    <Alert v-if="error" tone="error">{{ error }}</Alert>
 
     <div v-if="health" class="admin-grid">
       <Card padding="sm">

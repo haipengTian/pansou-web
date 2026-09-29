@@ -12,13 +12,15 @@ const ROLE_OPTIONS = [
 ];
 
 const COLUMNS = [
-  { key: 'username', title: '用户名' },
-  { key: 'role', title: '角色' },
-  { key: 'disabled', title: '状态' },
-  { key: 'source', title: '来源' },
-  { key: 'created_at', title: '创建时间' },
-  { key: 'last_login_at', title: '最近登录' },
-  { key: 'actions', title: '操作' }
+  { key: 'username', title: '用户名', nowrap: true },
+  { key: 'role', title: '角色', nowrap: true },
+  { key: 'disabled', title: '状态', nowrap: true },
+  { key: 'source', title: '来源', nowrap: true },
+  { key: 'created_at', title: '创建时间', nowrap: true },
+  { key: 'last_login_at', title: '最近登录', nowrap: true },
+  { key: 'last_search_at', title: '最近搜索', nowrap: true },
+  { key: 'today_searches', title: '今日搜索', align: 'right' as const, nowrap: true },
+  { key: 'actions', title: '操作', nowrap: true, fixed: 'right' as const }
 ];
 
 const users = ref<AdminUser[]>([]);
@@ -135,16 +137,18 @@ onMounted(() => run(async () => undefined));
         </template>
         <template #cell-created_at="{ value }">{{ formatTime(value) }}</template>
         <template #cell-last_login_at="{ value }">{{ formatTime(value) }}</template>
+        <template #cell-last_search_at="{ value }">{{ formatTime(value) }}</template>
+        <template #cell-today_searches="{ value }">{{ value ?? 0 }}</template>
         <template #cell-actions="{ row }">
-          <div v-if="asUser(row).source === 'db'" class="flex gap-1 flex-wrap">
-            <Button variant="outline" size="sm" :disabled="busy" @click="resetPassword(asUser(row))">重置密码</Button>
-            <Button variant="outline" size="sm" :disabled="busy || isSelf(asUser(row))" @click="toggleRole(asUser(row))">
+          <div v-if="asUser(row).source === 'db'" class="row-actions">
+            <Button variant="link" size="sm" :disabled="busy" @click="resetPassword(asUser(row))">重置密码</Button>
+            <Button variant="link" size="sm" :disabled="busy || isSelf(asUser(row))" @click="toggleRole(asUser(row))">
               {{ asUser(row).role === 'admin' ? '降为用户' : '设为管理员' }}
             </Button>
-            <Button variant="outline" size="sm" :disabled="busy || isSelf(asUser(row))" @click="toggleDisabled(asUser(row))">
+            <Button variant="link" size="sm" :disabled="busy || isSelf(asUser(row))" @click="toggleDisabled(asUser(row))">
               {{ asUser(row).disabled ? '启用' : '禁用' }}
             </Button>
-            <Button variant="danger" size="sm" :disabled="busy || isSelf(asUser(row))" @click="remove(asUser(row))">删除</Button>
+            <Button variant="danger-link" size="sm" :disabled="busy || isSelf(asUser(row))" @click="remove(asUser(row))">删除</Button>
           </div>
           <span v-else class="admin-page-desc">只读</span>
         </template>
@@ -152,3 +156,13 @@ onMounted(() => run(async () => undefined));
     </Card>
   </div>
 </template>
+
+<style scoped>
+/* 操作列：文字按钮单行排列 */
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  white-space: nowrap;
+}
+</style>

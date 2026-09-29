@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { Button, Card, CheckTag, Field, Textarea } from '@/components/ui';
+import { Alert, Button, Card, CheckTag, Field, Textarea } from '@/components/ui';
 import { useSettings } from '../useSettings';
 import { diskTypeMap } from '@/utils/diskTypes';
 
@@ -67,8 +67,8 @@ onMounted(async () => {
       <Button :loading="saving" :disabled="!settings" @click="submit">保存</Button>
     </div>
 
-    <div v-if="error" class="admin-notice error">{{ error }}</div>
-    <div v-if="notice" class="admin-notice success">{{ notice }}</div>
+    <Alert v-if="error" tone="error">{{ error }}</Alert>
+    <Alert v-if="notice" tone="success">{{ notice }}</Alert>
 
     <div class="grid gap-4 md:grid-cols-2">
       <Card padding="sm">

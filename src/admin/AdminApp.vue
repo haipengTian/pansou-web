@@ -8,14 +8,19 @@ import ChannelsPage from './pages/ChannelsPage.vue';
 import AccountsPage from './pages/AccountsPage.vue';
 import UsersPage from './pages/UsersPage.vue';
 import RuntimePage from './pages/RuntimePage.vue';
+import StatsPage from './pages/StatsPage.vue';
+import HistoryPage from './pages/HistoryPage.vue';
+import type { HistoryDrill } from './format';
 import { getSession, logout } from '@/api';
-import { Button, Card, Link } from '@/components/ui';
+import { Button, Card, Link, Provider, SwitchTransition } from '@/components/ui';
 import './admin.css';
 
-type PageKey = 'overview' | 'plugins' | 'channels' | 'accounts' | 'users' | 'docs' | 'runtime';
+type PageKey = 'overview' | 'stats' | 'history' | 'plugins' | 'channels' | 'accounts' | 'users' | 'docs' | 'runtime';
 
 const PAGES: { key: PageKey; label: string }[] = [
   { key: 'overview', label: '概览' },
+  { key: 'stats', label: '访问统计' },
+  { key: 'history', label: '搜索历史' },
   { key: 'plugins', label: '插件管理' },
   { key: 'channels', label: '频道与网盘类型' },
   { key: 'accounts', label: '数据源账号' },
@@ -38,6 +43,13 @@ const pageLabel = computed(() => PAGES.find((p) => p.key === page.value)?.label 
 const go = (key: PageKey) => {
   page.value = key;
   window.location.hash = `/${key}`;
+};
+
+// 统计页点击关键词/用户/IP 时，带着筛选条件跳到搜索历史
+const historyDrill = ref<HistoryDrill | null>(null);
+const drillToHistory = (filter: HistoryDrill) => {
+  historyDrill.value = { ...filter };
+  go('history');
 };
 
 const syncFromHash = () => {
@@ -82,6 +94,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <Provider>
   <div class="min-h-screen bg-background text-foreground">
     <LoginDialog
       :visible="state === 'login'"
@@ -127,16 +140,21 @@ onUnmounted(() => {
 
       <main class="admin-main">
         <div class="admin-mobile-title">{{ pageLabel }}</div>
+        <SwitchTransition>
         <OverviewPage v-if="page === 'overview'" />
+        <StatsPage v-else-if="page === 'stats'" @drill="drillToHistory" />
+        <HistoryPage v-else-if="page === 'history'" :drill="historyDrill" />
         <PluginsPage v-else-if="page === 'plugins'" />
         <ChannelsPage v-else-if="page === 'channels'" />
         <AccountsPage v-else-if="page === 'accounts'" />
         <UsersPage v-else-if="page === 'users'" :current-username="username" />
         <ApiDocs v-else-if="page === 'docs'" />
         <RuntimePage v-else-if="page === 'runtime'" />
+        </SwitchTransition>
       </main>
     </div>
   </div>
+  </Provider>
 </template>
 
 <style scoped>

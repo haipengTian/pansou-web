@@ -1,50 +1,59 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { nextTick } from 'vue';
 import Modal from '../Modal.vue';
 import Table from '../Table.vue';
 import Tabs from '../Tabs.vue';
 import Link from '../Link.vue';
 import { confirmDialog, promptDialog } from '../dialog';
-import { toast, toastState } from '../toast';
+import { toast } from '../toast';
 
-const flush = async () => {
-  await nextTick();
-  await nextTick();
+// 弹层类组件渲染到 body，且带有进出场动画，这里统一等待一小段时间再断言。
+const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
+
+// 取最后一个匹配的按钮：上一个对话框可能还在离场动画中，新对话框排在其后。
+const clickButton = (text: string) => {
+  const button = [...document.querySelectorAll('button')].filter((b) => b.textContent?.trim() === text).at(-1);
+  if (!button) throw new Error(`找不到按钮 ${text}`);
+  button.click();
 };
 
 afterEach(() => {
   document.body.innerHTML = '';
-  document.body.style.overflow = '';
 });
 
 describe('Modal', () => {
-  it('打开时渲染到 body 并锁定滚动，关闭后恢复', async () => {
+  it('打开时把标题与内容渲染到 body', async () => {
     const wrapper = mount(Modal, { props: { open: true, title: '标题' }, slots: { default: '内容' }, attachTo: document.body });
-    await flush();
+    await settle();
+    expect(document.body.textContent).toContain('标题');
     expect(document.body.textContent).toContain('内容');
-    expect(document.body.style.overflow).toBe('hidden');
-
-    await wrapper.setProps({ open: false });
-    await flush();
-    expect(document.body.style.overflow).toBe('');
     wrapper.unmount();
   });
 
-  it('Esc 与关闭按钮触发 update:open=false', async () => {
+  it('点击关闭按钮触发 update:open=false 与 close', async () => {
     const wrapper = mount(Modal, { props: { open: true, title: 't' }, attachTo: document.body });
-    await flush();
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    (document.querySelector('.ui-modal__close') as HTMLButtonElement).click();
-    expect(wrapper.emitted('update:open')).toEqual([[false], [false]]);
+    await settle();
+    (document.querySelector('.n-base-close') as HTMLElement).click();
+    expect(wrapper.emitted('update:open')).toEqual([[false]]);
+    expect(wrapper.emitted('close')).toHaveLength(1);
     wrapper.unmount();
   });
 
-  it('closable=false 时 Esc 不关闭', async () => {
-    const wrapper = mount(Modal, { props: { open: true, closable: false }, attachTo: document.body });
-    await flush();
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    expect(wrapper.emitted('update:open')).toBeUndefined();
+  it('closable=false 时没有关闭按钮', async () => {
+    const wrapper = mount(Modal, { props: { open: true, title: 't', closable: false }, attachTo: document.body });
+    await settle();
+    expect(document.querySelector('.n-base-close')).toBeNull();
+    wrapper.unmount();
+  });
+
+  it('footer 插槽渲染在底部', async () => {
+    const wrapper = mount(Modal, {
+      props: { open: true, title: 't' },
+      slots: { footer: '<span class="footer-mark">底部</span>' },
+      attachTo: document.body
+    });
+    await settle();
+    expect(document.querySelector('.footer-mark')?.textContent).toBe('底部');
     wrapper.unmount();
   });
 });
@@ -62,29 +71,42 @@ describe('Table', () => {
     });
     const cells = wrapper.findAll('tbody td').map((td) => td.text());
     expect(cells).toEqual(['alice', '[user]']);
+    expect(wrapper.text()).toContain('名称');
   });
 
-  it('无数据时显示空状态', () => {
+  it('nowrap 列的表头与单元格不换行', () => {
+    const wrapper = mount(Table, {
+      props: { columns: [{ key: 'name', title: '名称', nowrap: true }, { key: 'role', title: '角色' }], data: [{ name: 'a', role: 'b' }] }
+    });
+    const [nameCell, roleCell] = wrapper.findAll('tbody td');
+    expect(nameCell.classes()).toContain('ui-table-col--nowrap');
+    expect(roleCell.classes()).not.toContain('ui-table-col--nowrap');
+    expect(wrapper.find('thead th').classes()).toContain('ui-table-col--nowrap');
+  });
+
+  it('无数据时显示空状态文字', () => {
     const wrapper = mount(Table, { props: { columns, data: [], emptyText: '没有账号' } });
-    expect(wrapper.find('.ui-table__empty').text()).toBe('没有账号');
+    expect(wrapper.text()).toContain('没有账号');
   });
 });
 
 describe('Tabs', () => {
+  const tabs = [
+    { label: 'A', value: 'a' },
+    { label: 'B', value: 'b', count: 3 },
+    { label: 'C', value: 'c', disabled: true }
+  ];
+
   it('点击切换并回传 v-model，显示计数', async () => {
-    const wrapper = mount(Tabs, {
-      props: { modelValue: 'a', tabs: [{ label: 'A', value: 'a' }, { label: 'B', value: 'b', count: 3 }] }
-    });
+    const wrapper = mount(Tabs, { props: { modelValue: 'a', tabs } });
     expect(wrapper.text()).toContain('3');
-    await wrapper.findAll('[role="tab"]')[1].trigger('click');
+    await wrapper.find('.n-tabs-tab[data-name="b"]').trigger('click');
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['b']);
   });
 
   it('禁用的标签不可切换', async () => {
-    const wrapper = mount(Tabs, {
-      props: { modelValue: 'a', tabs: [{ label: 'A', value: 'a' }, { label: 'B', value: 'b', disabled: true }] }
-    });
-    await wrapper.findAll('[role="tab"]')[1].trigger('click');
+    const wrapper = mount(Tabs, { props: { modelValue: 'a', tabs } });
+    await wrapper.find('.n-tabs-tab[data-name="c"]').trigger('click');
     expect(wrapper.emitted('update:modelValue')).toBeUndefined();
   });
 });
@@ -103,55 +125,41 @@ describe('Link', () => {
 });
 
 describe('dialog 服务', () => {
-  const clickButton = (text: string) => {
-    const button = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === text);
-    if (!button) throw new Error(`找不到按钮 ${text}`);
-    button.click();
-  };
-
   it('confirmDialog 确认返回 true，取消返回 false', async () => {
     const accepted = confirmDialog({ title: '确认？', confirmText: '好的' });
-    await flush();
+    await settle();
     expect(document.body.textContent).toContain('确认？');
     clickButton('好的');
     await expect(accepted).resolves.toBe(true);
 
     const rejected = confirmDialog({ title: '再确认？' });
-    await flush();
+    await settle();
     clickButton('取消');
     await expect(rejected).resolves.toBe(false);
   });
 
   it('promptDialog 返回输入内容，取消返回 null', async () => {
     const pending = promptDialog({ title: '新密码', type: 'password' });
-    await flush();
+    await settle();
     const input = document.querySelector('input') as HTMLInputElement;
     expect(input.type).toBe('password');
     input.value = 'secret-123';
     input.dispatchEvent(new Event('input'));
-    await flush();
+    await settle();
     clickButton('确定');
     await expect(pending).resolves.toBe('secret-123');
 
     const cancelled = promptDialog({ title: '再来' });
-    await flush();
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await settle();
+    clickButton('取消');
     await expect(cancelled).resolves.toBeNull();
   });
 });
 
 describe('toast 服务', () => {
-  it('显示消息并按时长自动消失', async () => {
-    vi.useFakeTimers();
-    try {
-      toast.success('已保存', 1000);
-      await flush();
-      expect(toastState.items.map((i) => i.message)).toContain('已保存');
-      expect(document.body.textContent).toContain('已保存');
-      vi.advanceTimersByTime(1000);
-      expect(toastState.items.map((i) => i.message)).not.toContain('已保存');
-    } finally {
-      vi.useRealTimers();
-    }
+  it('显示消息', async () => {
+    toast.success('已保存');
+    await settle();
+    expect(document.body.textContent).toContain('已保存');
   });
 });

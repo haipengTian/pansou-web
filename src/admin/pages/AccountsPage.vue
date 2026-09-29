@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Alert, SwitchTransition } from '@/components/ui';
 import { ref, computed, onMounted } from 'vue';
 import AccountCenter from '@/components/AccountCenter.vue';
 import QQPDManager from '@/components/QQPDManager.vue';
@@ -32,18 +33,20 @@ onMounted(async () => {
 
 <template>
   <div class="admin-page">
-    <div v-if="error" class="admin-notice error">{{ error }}</div>
-    <div v-else-if="health && !hasAnyService" class="admin-notice info">
+    <Alert v-if="error" tone="error">{{ error }}</Alert>
+    <Alert v-else-if="health && !hasAnyService" tone="info">
       当前没有启用需要账号的插件（qqpd、gying、panlian、weibo、woniu）。请先在「插件管理」中启用。
-    </div>
+    </Alert>
 
     <template v-if="health && hasAnyService">
+      <SwitchTransition>
       <AccountCenter v-if="!current" :backend-health="health" @navigate="current = $event" />
       <QQPDManager v-else-if="current === 'qqpd'" @back-to-center="current = null" />
       <GyingManager v-else-if="current === 'gying'" @back-to-center="current = null" />
       <PanlianManager v-else-if="current === 'panlian'" @back-to-center="current = null" />
       <WeiboManager v-else-if="current === 'weibo'" @back-to-center="current = null" />
       <WoniuManager v-else-if="current === 'woniu'" @back-to-center="current = null" />
+      </SwitchTransition>
     </template>
   </div>
 </template>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, useAttrs } from 'vue';
+import { NInput } from 'naive-ui';
 
-// 单行输入框。class/style 作用在外层容器，其余原生属性（placeholder、autocomplete、
-// maxlength、name…）透传给内部 input。type="number" 时回传数字（空值回传空字符串）。
+// 单行输入框（基于 NInput）。class/style 作用在外层，其余原生属性（autocomplete、maxlength、
+// name、required…）透传给内部 input。type="number" 时回传数字（空值回传空字符串）。
 defineOptions({ inheritAttrs: false });
 
 interface Props {
@@ -34,26 +35,35 @@ const emit = defineEmits<{
 }>();
 
 const attrs = useAttrs();
-const inputRef = ref<HTMLInputElement | null>(null);
+const inputRef = ref<InstanceType<typeof NInput> | null>(null);
 
-const wrapperAttrs = computed(() => ({ class: attrs.class, style: attrs.style }));
-const inputAttrs = computed(() => {
-  const { class: _class, style: _style, ...rest } = attrs;
-  return rest;
-});
-
-const onInput = (event: Event) => {
-  const raw = (event.target as HTMLInputElement).value;
-  if (props.type === 'number') {
-    emit('update:modelValue', raw === '' ? '' : Number(raw));
-    return;
-  }
-  emit('update:modelValue', raw);
-};
+const SIZES = { sm: 'small', default: 'medium', lg: 'large' } as const;
+const naiveSize = computed(() => (props.variant === 'search' ? 'large' : SIZES[props.size]));
 
 const onKeydown = (event: KeyboardEvent) => {
   // 输入法组合输入时的回车只是确认候选词，不能当作提交。
   if (event.key === 'Enter' && !event.isComposing) emit('enter', event);
+};
+
+// 透传给内部 <input> 的属性
+const inputProps = computed(() => {
+  const { class: _class, style: _style, ...rest } = attrs;
+  return {
+    ...rest,
+    inputmode: props.type === 'number' ? 'decimal' : undefined,
+    'aria-invalid': props.invalid || undefined,
+    style: props.align === 'center' ? 'text-align: center' : undefined,
+    onKeydown
+  };
+});
+
+const onUpdate = (raw: string) => {
+  if (props.type === 'number') {
+    const trimmed = raw.trim();
+    emit('update:modelValue', trimmed === '' || Number.isNaN(Number(trimmed)) ? '' : Number(trimmed));
+    return;
+  }
+  emit('update:modelValue', raw);
 };
 
 defineExpose({
@@ -64,107 +74,30 @@ defineExpose({
 </script>
 
 <template>
-  <div
-    v-bind="wrapperAttrs"
-    class="ui-input"
-    :class="[
-      `ui-input--${size}`,
-      {
-        'ui-input--search': variant === 'search',
-        'ui-input--invalid': invalid,
-        'ui-input--disabled': disabled,
-        'ui-input--has-prefix': $slots.prefix,
-        'ui-input--has-suffix': $slots.suffix
-      }
-    ]"
+  <NInput
+    ref="inputRef"
+    :class="['ui-input', { 'ui-input--search': variant === 'search' }, attrs.class]"
+    :style="(attrs.style as any)"
+    :value="modelValue === undefined || modelValue === null ? '' : String(modelValue)"
+    :type="type === 'password' ? 'password' : 'text'"
+    :size="naiveSize"
+    :placeholder="placeholder ?? ''"
+    :disabled="disabled"
+    :readonly="readonly"
+    :autofocus="autofocus"
+    :status="invalid ? 'error' : undefined"
+    :input-props="(inputProps as any)"
+    @update:value="onUpdate"
+    @focus="emit('focus', $event)"
+    @blur="emit('blur', $event)"
   >
-    <span v-if="$slots.prefix" class="ui-input__prefix"><slot name="prefix" /></span>
-    <input
-      ref="inputRef"
-      v-bind="inputAttrs"
-      class="ui-input__control"
-      :class="{ 'ui-input__control--center': align === 'center' }"
-      :type="type"
-      :value="modelValue"
-      :placeholder="placeholder"
-      :disabled="disabled"
-      :readonly="readonly"
-      :autofocus="autofocus"
-      :aria-invalid="invalid || undefined"
-      @input="onInput"
-      @keydown="onKeydown"
-      @focus="emit('focus', $event)"
-      @blur="emit('blur', $event)"
-    />
-    <span v-if="$slots.suffix" class="ui-input__suffix"><slot name="suffix" /></span>
-  </div>
+    <template v-if="$slots.prefix" #prefix><slot name="prefix" /></template>
+    <template v-if="$slots.suffix" #suffix><slot name="suffix" /></template>
+  </NInput>
 </template>
 
 <style scoped>
-.ui-input {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  border: 1px solid hsl(var(--input));
-  border-radius: calc(var(--radius, 0.5rem) - 2px);
-  background: hsl(var(--background));
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.ui-input:focus-within {
-  border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
-}
-
-.ui-input--invalid,
-.ui-input--invalid:focus-within {
-  border-color: hsl(var(--destructive));
-  box-shadow: 0 0 0 3px hsl(var(--destructive) / 0.12);
-}
-
-.ui-input--disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.ui-input__control {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: hsl(var(--foreground));
-  padding: 0 0.75rem;
-  font-size: 0.875rem;
-}
-
-.ui-input__control::placeholder { color: hsl(var(--muted-foreground)); }
-.ui-input__control--center { text-align: center; }
-.ui-input__control:disabled { cursor: not-allowed; }
-
-.ui-input--sm { height: 2rem; }
-.ui-input--default { height: 2.5rem; }
-.ui-input--lg { height: 2.75rem; }
-.ui-input--lg .ui-input__control { font-size: 0.9375rem; }
-
 .ui-input--search {
-  height: 3rem;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
 }
-.ui-input--search .ui-input__control { font-size: 1rem; padding-left: 1rem; }
-
-.ui-input--has-prefix .ui-input__control { padding-left: 0.25rem; }
-.ui-input--has-suffix .ui-input__control { padding-right: 0.25rem; }
-
-.ui-input__prefix,
-.ui-input__suffix {
-  display: inline-flex;
-  align-items: center;
-  color: hsl(var(--muted-foreground));
-  flex-shrink: 0;
-}
-.ui-input__prefix { padding-left: 0.75rem; }
-.ui-input__suffix { padding-right: 0.5rem; }
 </style>

@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue';
 import type { SearchOptions } from '@/api';
 import type { DetectionSettings } from '@/types';
 import { loadDetectionSettings, persistDetectionSettings } from '@/utils/linkDetection';
-import { Button, Card, CheckTag, Switch, Tabs, confirmDialog, toast } from '@/components/ui';
+import { Button, Card, CheckTag, Switch, SwitchTransition, Tabs, confirmDialog, toast } from '@/components/ui';
 
 // 客户侧的搜索筛选：只能在管理后台放开的范围内（/api/search/options）勾选频道、插件与网盘类型。
 // 选择保存在本地，SearchForm/App 发起搜索时读取；服务端还会再按后台范围收敛一次。
@@ -137,7 +137,8 @@ const resetToDefault = async () => {
     <Card padding="sm">
       <Tabs v-model="activeTab" :tabs="tabs" />
 
-      <div class="tab-pane">
+      <SwitchTransition variant="tab" :index="tabs.findIndex((t) => t.value === activeTab)">
+      <div :key="activeTab" class="tab-pane">
         <template v-if="activeTab === 'channels'">
           <div class="pane-header">
             <span class="selected-count">已选 {{ selectedChannels.length }} / {{ availableChannels.length }}</span>
@@ -207,6 +208,7 @@ const resetToDefault = async () => {
           <Switch v-model="detectionSettings.enabled" aria-label="自动检测当前可见链接" />
         </div>
       </div>
+      </SwitchTransition>
 
       <div class="action-bar">
         <Button variant="outline" @click="resetToDefault">重置默认</Button>

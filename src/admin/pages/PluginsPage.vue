@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { Badge, Button, Card, CheckTag, Input } from '@/components/ui';
+import { Alert, Badge, Button, Card, CheckTag, Input } from '@/components/ui';
 import { listPlugins, errorMessage, type AdminPlugin } from '@/api/admin';
 import { useSettings } from '../useSettings';
 
@@ -80,11 +80,11 @@ onMounted(refresh);
       </div>
     </div>
 
-    <div v-if="!pluginSystemEnabled" class="admin-notice info">
+    <Alert v-if="!pluginSystemEnabled" tone="info">
       插件系统已通过 ASYNC_PLUGIN_ENABLED=false 关闭，这里的修改会保存但不会生效。
-    </div>
-    <div v-if="error || listError" class="admin-notice error">{{ error || listError }}</div>
-    <div v-if="notice" class="admin-notice success">{{ notice }}</div>
+    </Alert>
+    <Alert v-if="error || listError" tone="error">{{ error || listError }}</Alert>
+    <Alert v-if="notice" tone="success">{{ notice }}</Alert>
 
     <Card padding="sm">
       <div class="flex gap-2 mb-3 flex-wrap items-center">

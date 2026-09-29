@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, nextTick, watch, defineAsyncComponent } from 'vue';
-import { search, logout, getHealth, verifyToken, getSearchOptions, type SearchParams, type HealthStatus, type SearchOptions } from '@/api';
+import { search, newSearchSessionId, logout, getHealth, verifyToken, getSearchOptions, type SearchParams, type HealthStatus, type SearchOptions } from '@/api';
 import type { SearchResponse, MergedResults, ExportField, ExportSettings } from '@/types';
 import SearchForm from '@/components/SearchForm.vue';
 import ResultTabs from '@/components/ResultTabs.vue';
 import SearchStats from '@/components/SearchStats.vue';
 import SearchConfig from '@/components/SearchConfig.vue';
 import LoginDialog from '@/components/LoginDialog.vue';
-import { Button, confirmDialog } from '@/components/ui';
+import { Button, Provider, SwitchTransition, confirmDialog } from '@/components/ui';
 import ExportResultsModal from '@/components/ExportResultsModal.vue';
 import { getDiskTypeName } from '@/utils/diskTypes';
 
@@ -72,6 +72,9 @@ const exportableDiskTypes = computed(() => {
 
 // 强制刷新逻辑
 let forceRefreshPending = false;
+
+// 当前搜索的会话 ID（见 handleSearch）
+let searchSessionId = '';
 
 // 当前页面状态
 // 客户端页面：搜索、筛选、API 文档；插件配置、数据源账号与监控都在管理后台（/admin）。
@@ -156,6 +159,8 @@ const handleSearch = async (params: SearchParams) => {
 
   // 先保存用户输入的原始参数，不带 refresh
   lastSearchParams.value = { ...params };
+  // 本次搜索的会话 ID：预热与后续各轮补齐都带上它，统计中只算一次搜索
+  searchSessionId = newSearchSessionId();
 
   // 强制刷新: 只影响本次请求参数
   let innerParams = { ...params };
@@ -193,14 +198,14 @@ const handleSearch = async (params: SearchParams) => {
       };
       
       // 后台预热搜索，仅用于触发后端插件异步缓存，不处理结果
-      search(preloadParams)
+      search(preloadParams, searchSessionId)
         .catch(error => {
           console.warn('后台预热搜索失败（不影响主搜索）:', error);
         });
     }
     
     // 先发起第一次搜索请求（显示结果）
-    search(userParams)
+    search(userParams, searchSessionId)
       .then(firstResponse => {
         
         if (firstResponse && firstResponse.total !== undefined) {
@@ -734,7 +739,7 @@ const startSecondAllSearch = (firstSearchCompleteTime: number) => {
     }
     
     try {
-      const response = await search(userParams);
+      const response = await search(userParams, searchSessionId);
       
       // 更新结果
       if (response && response.total >= searchResults.total) {
@@ -782,7 +787,7 @@ const startThirdAllSearch = (secondSearchCompleteTime: number) => {
     }
     
     try {
-      const response = await search(userParams);
+      const response = await search(userParams, searchSessionId);
       
       // 更新结果
       if (response && response.total >= searchResults.total) {
@@ -839,7 +844,7 @@ const startFourthAllSearch = (thirdSearchCompleteTime: number) => {
     }
     
     try {
-      const response = await search(userParams);
+      const response = await search(userParams, searchSessionId);
       
       // 更新结果
       if (response && response.total >= searchResults.total) {
@@ -1000,6 +1005,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <Provider>
   <div class="app-shell min-h-screen bg-background text-foreground transition-colors duration-300 flex flex-col">
     <!-- 登录对话框 -->
     <LoginDialog 
@@ -1095,6 +1101,8 @@ onUnmounted(() => {
       class="main-content container mx-auto px-4 py-8 flex-1"
       :class="{ 'search-main': currentPage === 'search' }"
     >
+      <!-- 页面切换动画；搜索页进场结束后按最终位置重算窄屏结果区高度 -->
+      <SwitchTransition @after-enter="syncMobileSearchLayout">
       <!-- 搜索页面 -->
       <div v-if="currentPage === 'search'" class="search-page">
         <!-- 搜索表单 -->
@@ -1164,6 +1172,7 @@ onUnmounted(() => {
       <div v-else-if="currentPage === 'docs'" class="docs-page">
         <ApiDocs />
       </div>
+      </SwitchTransition>
     </main>
     
     <!-- 页脚 -->
@@ -1175,6 +1184,7 @@ onUnmounted(() => {
       </div>
     </footer>
   </div>
+  </Provider>
 </template>
 
 <style scoped>

@@ -123,6 +123,11 @@ https://sou.thpvip.xyz/
 客户访问 `https://sou.thpvip.xyz/` 登录后只能搜索，并在「筛选」页中勾选后台放开的频道、插件和网盘类型；
 请求中超出范围的参数会被服务端剔除。公开的 `/api/health` 只返回存活状态。
 
+**访问统计 / 搜索历史**：后台记录每次搜索（用户、完整 IP、User-Agent、关键词、结果数、耗时）、每次登录尝试，
+以及按小时聚合的接口访问量，存放在数据卷的 `/app/data/admin/stats.db`（SQLite）。
+前端一次搜索的预热与多轮补齐只计一次。记录**不限保留时间**，会随使用持续增长
+（按每次搜索约 300 字节估算，10 万次搜索约 30MB），可在后台「运行参数」查看当前大小；备份时请备份整个数据卷。
+
 `CHANNELS` 与 `ENABLED_PLUGINS` 只在第一次启动时写入 `settings.json`，之后请在后台修改。
 如需按环境变量重新生成，删除卷内的 `/app/data/admin/settings.json`（一体镜像）后重启容器。
 
@@ -151,4 +156,4 @@ PANSOU_IMAGE=ghcr.io/haipengtian/pansou-web:sha-a1b2c3d
 
 ## 数据
 
-缓存、日志、可持久化插件数据以及后台的设置与账号（`/app/data/admin/`）保存在命名卷 `pansou-data`。更新或执行 `docker compose down` 不会删除它。只有执行 `docker compose down -v` 才会删除数据，请谨慎使用。
+缓存、日志、可持久化插件数据以及后台的设置、账号与访问统计（`/app/data/admin/`）保存在命名卷 `pansou-data`。更新或执行 `docker compose down` 不会删除它。只有执行 `docker compose down -v` 才会删除数据，请谨慎使用。

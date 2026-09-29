@@ -33,7 +33,8 @@ const openExternalLink = (e: MouseEvent) => {
 <template>
   <Card 
     v-if="enabled"
-    class="service-card" 
+    class="service-card"
+    padding="none"
     @click="emit('manage')"
   >
     <div class="card-content">

@@ -123,7 +123,15 @@ export const getSearchOptions = async (): Promise<SearchOptions> => {
 const SEARCH_TIMEOUT_MS = 45000;
 
 // 搜索API
-export const search = async (params: SearchParams): Promise<SearchResponse> => {
+// 生成搜索会话 ID：同一次搜索的预热与多轮补齐请求共用它，服务端据此在统计中合并为一次搜索。
+export const newSearchSessionId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+};
+
+export const search = async (params: SearchParams, sessionId?: string): Promise<SearchResponse> => {
   // 添加ext参数，包含referer信息
   const searchParams = {
     ...params,
@@ -132,6 +140,7 @@ export const search = async (params: SearchParams): Promise<SearchResponse> => {
   
   const response = await api.get<ApiResponse<SearchResponse>>('/search', {
     params: searchParams,
+    headers: sessionId ? { 'X-Search-Session': sessionId } : undefined,
     // 搜索是慢请求：服务端允许插件批次用到 PLUGIN_TIMEOUT（默认 10 秒），
     // 频道阶段还有各自的收集窗口。用 api 实例默认的 10 秒会在服务端还没返回时
     // 就把请求掐掉——前端只看到 AxiosError: timeout of 10000ms exceeded，

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { NInput } from 'naive-ui';
 
-// 多行输入框。class/style 作用在控件本身，其余原生属性一并透传。
+// 多行输入框（基于 NInput type=textarea）。
 interface Props {
   modelValue?: string;
   rows?: number;
@@ -21,62 +22,28 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
 
-const classes = computed(() => [
-  'ui-textarea',
-  `ui-textarea--resize-${props.resize}`,
-  { 'ui-textarea--invalid': props.invalid, 'ui-textarea--mono': props.monospace }
-]);
+const inputProps = computed(() => ({ 'aria-invalid': props.invalid || undefined }));
 </script>
 
 <template>
-  <textarea
-    :class="classes"
+  <NInput
+    type="textarea"
+    :class="['ui-textarea', { 'ui-textarea--mono': monospace }]"
     :value="modelValue"
     :rows="rows"
-    :placeholder="placeholder"
+    :placeholder="placeholder ?? ''"
     :disabled="disabled"
     :readonly="readonly"
-    :aria-invalid="invalid || undefined"
-    @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
+    :resizable="resize !== 'none'"
+    :status="invalid ? 'error' : undefined"
+    :input-props="inputProps"
+    @update:value="emit('update:modelValue', $event)"
   />
 </template>
 
 <style scoped>
-.ui-textarea {
-  display: block;
-  width: 100%;
-  border: 1px solid hsl(var(--input));
-  border-radius: calc(var(--radius, 0.5rem) - 2px);
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.ui-textarea::placeholder { color: hsl(var(--muted-foreground)); }
-
-.ui-textarea:focus {
-  outline: none;
-  border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
-}
-
-.ui-textarea:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.ui-textarea--invalid,
-.ui-textarea--invalid:focus {
-  border-color: hsl(var(--destructive));
-  box-shadow: 0 0 0 3px hsl(var(--destructive) / 0.12);
-}
-
-.ui-textarea--mono {
+.ui-textarea--mono :deep(textarea) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.8125rem;
 }
-
-.ui-textarea--resize-none { resize: none; }
-.ui-textarea--resize-vertical { resize: vertical; }
-.ui-textarea--resize-both { resize: both; }
 </style>
