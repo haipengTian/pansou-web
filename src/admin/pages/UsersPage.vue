@@ -18,6 +18,8 @@ const COLUMNS = [
   { key: 'source', title: '来源' },
   { key: 'created_at', title: '创建时间' },
   { key: 'last_login_at', title: '最近登录' },
+  { key: 'last_search_at', title: '最近搜索' },
+  { key: 'today_searches', title: '今日搜索', align: 'right' as const },
   { key: 'actions', title: '操作' }
 ];
 
@@ -135,6 +137,8 @@ onMounted(() => run(async () => undefined));
         </template>
         <template #cell-created_at="{ value }">{{ formatTime(value) }}</template>
         <template #cell-last_login_at="{ value }">{{ formatTime(value) }}</template>
+        <template #cell-last_search_at="{ value }">{{ formatTime(value) }}</template>
+        <template #cell-today_searches="{ value }">{{ value ?? 0 }}</template>
         <template #cell-actions="{ row }">
           <div v-if="asUser(row).source === 'db'" class="flex gap-1 flex-wrap">
             <Button variant="outline" size="sm" :disabled="busy" @click="resetPassword(asUser(row))">重置密码</Button>

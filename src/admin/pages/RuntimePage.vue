@@ -24,7 +24,10 @@ const LABELS: Record<string, string> = {
   tg_backfill_enabled: 'TG 后台补齐',
   plugin_backfill_enabled: '插件后台补齐',
   http_max_conns: 'HTTP 最大连接数',
-  settings_seeded_from_env: '本次启动由环境变量生成设置'
+  settings_seeded_from_env: '本次启动由环境变量生成设置',
+  stats_enabled: '访问统计',
+  stats_db_size_bytes: '统计数据库大小',
+  stats_dropped_events: '统计丢弃事件数（队列满）'
 };
 
 const COLUMNS = [
@@ -35,10 +38,19 @@ const COLUMNS = [
 const runtime = ref<RuntimeInfo | null>(null);
 const error = ref('');
 
-const display = (v: string | number | boolean) => (typeof v === 'boolean' ? (v ? '是' : '否') : String(v));
+const formatBytes = (n: number) => {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+};
+
+const display = (v: string | number | boolean, key?: string) => {
+  if (key === 'stats_db_size_bytes' && typeof v === 'number') return formatBytes(v);
+  return typeof v === 'boolean' ? (v ? '是' : '否') : String(v);
+};
 
 const rows = computed(() =>
-  Object.entries(runtime.value || {}).map(([key, value]) => ({ key, label: LABELS[key] || key, value: display(value) }))
+  Object.entries(runtime.value || {}).map(([key, value]) => ({ key, label: LABELS[key] || key, value: display(value, key) }))
 );
 
 onMounted(async () => {

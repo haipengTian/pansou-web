@@ -7,7 +7,7 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   modelValue?: string | number;
-  type?: 'text' | 'password' | 'email' | 'search' | 'number' | 'url';
+  type?: 'text' | 'password' | 'email' | 'search' | 'number' | 'url' | 'date';
   size?: 'sm' | 'default' | 'lg';
   variant?: 'default' | 'search';
   placeholder?: string;

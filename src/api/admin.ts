@@ -33,6 +33,8 @@ export interface AdminUser {
   source: 'env' | 'db';
   created_at?: string;
   last_login_at?: string;
+  last_search_at?: string;
+  today_searches?: number;
 }
 
 export interface AdminHealth {
@@ -106,4 +108,118 @@ export const updateUser = async (username: string, patch: UserPatch) => {
 
 export const deleteUser = async (username: string) => {
   await api.delete(`/admin/users/${encodeURIComponent(username)}`);
+};
+
+// ---------- 搜索历史与访问统计 ----------
+
+export interface StatsCounts {
+  searches: number;
+  users: number;
+  ips: number;
+}
+
+export interface StatsOverview {
+  days: number;
+  today: StatsCounts;
+  total: StatsCounts;
+  period: {
+    searches: number;
+    zero_results: number;
+    zero_rate: number;
+    avg_latency_ms: number;
+    p95_latency_ms: number;
+    errors: number;
+  };
+  daily: { day: string; searches: number; users: number; ips: number; zero_results: number }[];
+  hourly: number[];
+  top_keywords: { keyword: string; count: number; users: number }[];
+  zero_keywords: { keyword: string; count: number; users: number }[];
+  top_users: { username: string; count: number; last_at: string }[];
+  top_ips: { ip: string; count: number; users: number; last_at: string }[];
+  api: { group: string; requests: number; errors_4xx: number; errors_5xx: number; avg_latency_ms: number }[];
+}
+
+export interface SearchRecord {
+  id: number;
+  username: string;
+  role: string;
+  ip: string;
+  user_agent: string;
+  keyword: string;
+  source_type: string;
+  cloud_types: string;
+  refresh: boolean;
+  result_total: number;
+  latency_ms: number;
+  request_count: number;
+  status: number;
+  error: string;
+  created_at: string;
+}
+
+export interface LoginRecord {
+  id: number;
+  username: string;
+  ip: string;
+  user_agent: string;
+  success: boolean;
+  reason: string;
+  created_at: string;
+}
+
+export interface Paged<T> {
+  total: number;
+  items: T[];
+}
+
+export interface SearchHistoryQuery {
+  username?: string;
+  keyword?: string;
+  ip?: string;
+  from?: string;
+  to?: string;
+  zero_only?: boolean;
+}
+
+export interface LoginHistoryQuery {
+  username?: string;
+  ip?: string;
+  success?: '' | 'true' | 'false';
+  from?: string;
+  to?: string;
+}
+
+// 去掉空值，避免把空字符串当作筛选条件传给后端
+const compact = (query: object) =>
+  Object.fromEntries(Object.entries(query).filter(([, v]) => v !== '' && v !== undefined && v !== false));
+
+export const getStatsOverview = async (days: number) => {
+  const res = await api.get<ApiResponse<StatsOverview>>('/admin/stats/overview', { params: { days } });
+  return res.data.data;
+};
+
+export const listSearchHistory = async (query: SearchHistoryQuery, page: number, pageSize: number) => {
+  const res = await api.get<ApiResponse<Paged<SearchRecord>>>('/admin/stats/searches', {
+    params: { ...compact(query), page, page_size: pageSize }
+  });
+  return res.data.data;
+};
+
+export const listLoginHistory = async (query: LoginHistoryQuery, page: number, pageSize: number) => {
+  const res = await api.get<ApiResponse<Paged<LoginRecord>>>('/admin/stats/logins', {
+    params: { ...compact(query), page, page_size: pageSize }
+  });
+  return res.data.data;
+};
+
+// 导出需要带认证头，不能用普通链接，先取回文件内容再触发下载
+export const exportSearchHistory = async (query: SearchHistoryQuery) => {
+  const res = await api.get<Blob>('/admin/stats/searches/export', {
+    params: compact(query),
+    responseType: 'blob',
+    timeout: 120000
+  });
+  const disposition = String(res.headers['content-disposition'] || '');
+  const match = /filename="?([^"]+)"?/.exec(disposition);
+  return { blob: res.data, filename: match?.[1] || 'pansou-search-history.csv' };
 };

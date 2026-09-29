@@ -3,6 +3,7 @@ import { type Component } from 'vue';
 // UI 组件库。业务代码只使用这里导出的组件，不直接写原生控件
 //（守卫测试见 src/__tests__/no-native-controls.spec.ts）。
 export { default as Badge } from './Badge.vue';
+export { default as BarChart } from './BarChart.vue';
 export { default as Button } from './Button.vue';
 export { default as Card } from './Card.vue';
 export { default as Checkbox } from './Checkbox.vue';
@@ -12,6 +13,7 @@ export { default as Field } from './Field.vue';
 export { default as Input } from './Input.vue';
 export { default as Link } from './Link.vue';
 export { default as Modal } from './Modal.vue';
+export { default as Pagination } from './Pagination.vue';
 export { default as Pressable } from './Pressable.vue';
 export { default as RadioGroup } from './RadioGroup.vue';
 export { default as Select } from './Select.vue';
