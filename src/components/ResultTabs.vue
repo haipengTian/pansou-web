@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import LoadingOrbit from '@/components/LoadingOrbit.vue';
-import { Button, Modal, Pressable, Tabs, directionOf, playEnter } from '@/components/ui';
+import { Button, Modal, Pressable, Tabs, directionOf, playEnter, toast } from '@/components/ui';
 import { inspectVisibleLinks } from '@/api';
 import type {
   DetectionSettings,
@@ -471,8 +471,17 @@ const handleScroll = (e: Event) => {
   }
 };
 
-// 打开链接
-const openLink = (url: string) => {
+// 打开链接（如有提取码自动复制并提示）
+const openLink = async (itemOrUrl: MergedResultItem | string) => {
+  const url = typeof itemOrUrl === 'string' ? itemOrUrl : itemOrUrl.url;
+  const password = typeof itemOrUrl === 'object' ? itemOrUrl.password : undefined;
+
+  if (password) {
+    const success = await copyToClipboard(password);
+    if (success) {
+      toast.success(`提取码已复制: ${password}，正在前往网盘...`);
+    }
+  }
   window.open(url, '_blank', 'noopener,noreferrer');
 };
 
@@ -759,7 +768,12 @@ onUnmounted(() => {
             
             <!-- 第二行：链接和提取码 -->
             <div class="result-row">
-              <div class="result-link" @click="openLink(item.url)">{{ item.url }}</div>
+              <div class="result-link" title="点击访问，若有提取码将自动复制" @click="openLink(item)">
+                <svg class="w-3.5 h-3.5 shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                <span class="truncate">{{ item.url }}</span>
+              </div>
               <Pressable
                 v-if="item.password"
                 class="result-password"
@@ -767,15 +781,22 @@ onUnmounted(() => {
                   copied: getListPasswordStatus(item, index) === 'success',
                   'copy-failed': getListPasswordStatus(item, index) === 'error'
                 }"
+                title="点击复制提取码"
                 @click="copyListPassword(item, index)"
               >
                 <template v-if="getListPasswordStatus(item, index) === 'success'">
+                  <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
                   复制成功
                 </template>
                 <template v-else-if="getListPasswordStatus(item, index) === 'error'">
                   复制失败
                 </template>
                 <template v-else>
+                  <svg class="w-3 h-3 opacity-60 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
                   提取码: <span class="password-value">{{ item.password }}</span>
                 </template>
               </Pressable>
@@ -806,7 +827,7 @@ onUnmounted(() => {
           <span v-if="detailItem.datetime" class="result-date">{{ formatDateTime(detailItem.datetime) }}</span>
         </div>
 
-        <Pressable block class="detail-link-preview" :title="detailItem.url" @click="openLink(detailItem.url)">
+        <Pressable block class="detail-link-preview" :title="detailItem.url" @click="openLink(detailItem)">
           {{ detailItem.url }}
         </Pressable>
       </template>
@@ -851,15 +872,16 @@ onUnmounted(() => {
   justify-content: center;
   padding: 3rem 1rem;
   text-align: center;
-  background-color: #fff;
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.04);
 }
 
 .empty-icon {
   width: 4rem;
   height: 4rem;
-  background-color: #f3f4f6;
+  background-color: hsl(var(--muted));
   border-radius: 9999px;
   display: flex;
   align-items: center;
@@ -870,13 +892,13 @@ onUnmounted(() => {
 .empty-icon .icon {
   width: 2rem;
   height: 2rem;
-  color: #9ca3af;
+  color: hsl(var(--muted-foreground));
 }
 
 .searching-icon {
   width: 4rem;
   height: 4rem;
-  background-color: #f0f9ff;
+  background-color: hsl(var(--primary) / 0.1);
   border-radius: 9999px;
   display: flex;
   align-items: center;
@@ -887,8 +909,8 @@ onUnmounted(() => {
 .searching-spinner {
   width: 2rem;
   height: 2rem;
-  border: 3px solid #e5e7eb;
-  border-top-color: #3b82f6;
+  border: 3px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -896,24 +918,26 @@ onUnmounted(() => {
 .empty-title, .searching-title {
   font-size: 1.125rem;
   font-weight: 500;
-  color: #4b5563;
+  color: hsl(var(--foreground));
   margin-bottom: 0.5rem;
 }
 
 .empty-subtitle, .searching-subtitle {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
 }
 
 .results-container {
-  background-color: #fff;
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.04);
   overflow: hidden;
 }
 
 .tabs {
-  background-color: #f9fafb;
+  background-color: hsl(var(--muted) / 0.4);
+  border-bottom: 1px solid hsl(var(--border));
   padding: 0 1rem;
 }
 
@@ -924,24 +948,28 @@ onUnmounted(() => {
 .empty-tab {
   padding: 3rem 1rem;
   text-align: center;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
 }
 
 .result-list {
   max-height: 600px;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  padding: 1rem;
+  padding: 0.5rem 1rem;
 }
 
 .result-item {
-  padding: 0.75rem;
-  border-bottom: 1px solid #f3f4f6;
-  transition: background-color 0.2s ease;
+  padding: 0.875rem 0.5rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.6);
+  transition: background-color 0.15s ease;
 }
 
 .result-item:hover {
-  background-color: #f9fafb;
+  background-color: hsl(var(--muted) / 0.35);
+}
+
+.result-item:last-child {
+  border-bottom: none;
 }
 
 .result-row {
@@ -955,24 +983,30 @@ onUnmounted(() => {
   margin-bottom: 0;
 }
 
-
 .result-title {
-  display: block;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   width: 100%;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
   font-weight: 500;
-  color: #111827;
+  color: hsl(var(--foreground));
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.45;
+  text-align: left;
 }
 
 .result-title-row {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   max-width: 100%;
   min-width: 0;
   gap: 0.45rem;
+  padding-top: 0.1rem;
 }
 
 .health-indicator {
@@ -980,20 +1014,21 @@ onUnmounted(() => {
   height: 0.55rem;
   border-radius: 9999px;
   flex: 0 0 auto;
-  background: #cbd5e1;
+  background: hsl(var(--muted-foreground) / 0.4);
+  margin-top: 0.45rem;
 }
 
 .health-indicator.is-pending {
-  background: #60a5fa;
+  background: hsl(var(--primary));
   animation: pulse-dot 1.1s ease-in-out infinite;
 }
 
 .health-indicator.is-ok {
-  background: #22c55e;
+  background: hsl(var(--success));
 }
 
 .health-indicator.is-bad {
-  background: #ef4444;
+  background: hsl(var(--destructive));
 }
 
 .health-indicator.is-locked {
@@ -1002,7 +1037,7 @@ onUnmounted(() => {
 
 .health-indicator.is-uncertain,
 .health-indicator.is-unsupported {
-  background: #94a3b8;
+  background: hsl(var(--muted-foreground) / 0.6);
 }
 
 /* 标题行布局 */
@@ -1020,6 +1055,7 @@ onUnmounted(() => {
   margin-left: 0.75rem;
   white-space: nowrap;
   flex-shrink: 0;
+  padding-top: 0.15rem;
 }
 
 /* 移动端：数据来源单独一行 */
@@ -1059,70 +1095,81 @@ onUnmounted(() => {
 
 .result-source {
   font-size: 0.75rem;
-  color: #3b82f6;
+  color: hsl(var(--primary));
   font-weight: 500;
-  background-color: #eff6ff;
+  background-color: hsl(var(--primary) / 0.1);
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-  border: 1px solid #bfdbfe;
+  border: 1px solid hsl(var(--primary) / 0.2);
 }
 
 .meta-separator {
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: hsl(var(--muted-foreground) / 0.5);
   margin: 0 0.375rem;
 }
 
 .result-date {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
 }
 
 .result-link {
   font-size: 0.875rem;
-  color: #3b82f6;
+  color: hsl(var(--primary));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .result-link:hover {
   text-decoration: underline;
+  opacity: 0.85;
 }
 
 .result-password {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
+  background-color: hsl(var(--muted) / 0.6);
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.375rem;
+  border: 1px solid hsl(var(--border));
   margin-left: 0.75rem;
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
 }
 
 .result-password:hover {
-  color: #4b5563;
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
 }
 
 .result-password.copied {
-  color: #059669;
-  display: inline-flex;
-  align-items: center;
-  padding: 0.3rem 0.7rem;
-  border-radius: 9999px;
-  background: #ecfdf5;
-  border: 1px solid #d1fae5;
-  line-height: 1;
+  color: hsl(var(--success));
+  background-color: hsl(var(--success) / 0.12);
+  border-color: hsl(var(--success) / 0.3);
 }
 
 .result-password.copy-failed {
-  color: #dc2626;
+  color: hsl(var(--destructive));
+  background-color: hsl(var(--destructive) / 0.12);
+  border-color: hsl(var(--destructive) / 0.3);
 }
 
 .password-value {
-  color: #10b981;
-  font-weight: 500;
+  color: hsl(var(--primary));
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .detail-title {
@@ -1158,12 +1205,12 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #059669;
+  color: hsl(var(--success));
 }
 
 .detail-password-action.success,
 .detail-copy-btn.success {
-  color: #059669;
+  color: hsl(var(--success));
 }
 
 .detail-password-action.error,
@@ -1177,15 +1224,15 @@ onUnmounted(() => {
   justify-content: center;
   gap: 0.5rem;
   padding: 1rem;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
   font-size: 0.875rem;
 }
 
 .loading-spinner, .hint-spinner {
   width: 1rem;
   height: 1rem;
-  border: 2px solid #e5e7eb;
-  border-top-color: #3b82f6;
+  border: 2px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -1196,10 +1243,10 @@ onUnmounted(() => {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem;
-  background-color: #f0f9ff;
-  color: #3b82f6;
+  background-color: hsl(var(--primary) / 0.08);
+  color: hsl(var(--primary));
   font-size: 0.875rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid hsl(var(--border));
 }
 
 @keyframes spin {
@@ -1265,6 +1312,5 @@ onUnmounted(() => {
   .tabs :deep(.ui-tabs__trigger) {
     font-size: 0.75rem;
   }
-
 }
 </style>

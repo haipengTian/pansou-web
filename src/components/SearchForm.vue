@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import type { SearchParams } from '@/api';
 import type { HealthStatus } from '@/api';
 import type { FilterConfig } from '@/types';
-import { Badge, Button, Field, Input, Icons } from '@/components/ui';
+import { Badge, Button, Field, Input, Icons, Pressable } from '@/components/ui';
 import FilterIcon from '@/components/icons/FilterIcon.vue';
 
 const keyword = ref('');
@@ -11,6 +11,29 @@ const loading = ref(false);
 const showAdvanced = ref(false);
 const includeKeywords = ref('');
 const excludeKeywords = ref('');
+
+const quickTags = ['4K电影', '经典美剧', '动漫新番', '无损音乐', '夸克合集', '纪录片'];
+
+const applyQuickTag = (tag: string) => {
+  keyword.value = tag;
+  handleSearch();
+};
+
+const addPresetKeyword = (target: 'include' | 'exclude', word: string) => {
+  if (target === 'include') {
+    const list = includeKeywords.value.split(/[,\s]+/).map(w => w.trim()).filter(Boolean);
+    if (!list.includes(word)) {
+      list.push(word);
+      includeKeywords.value = list.join(' ');
+    }
+  } else {
+    const list = excludeKeywords.value.split(/[,\s]+/).map(w => w.trim()).filter(Boolean);
+    if (!list.includes(word)) {
+      list.push(word);
+      excludeKeywords.value = list.join(' ');
+    }
+  }
+};
 
 // 接收后端健康状态作为 props
 const props = defineProps<{
@@ -182,6 +205,22 @@ const handleSearch = () => {
         </template>
       </Input>
 
+      <!-- 推荐热门标签 -->
+      <div v-if="!showAdvanced" class="quick-tags-bar">
+        <span class="quick-tags-label">推荐:</span>
+        <div class="quick-tags-list">
+          <Pressable
+            v-for="tag in quickTags"
+            :key="tag"
+            class="quick-tag-pill"
+            :disabled="loading"
+            @click="applyQuickTag(tag)"
+          >
+            {{ tag }}
+          </Pressable>
+        </div>
+      </div>
+
       <!-- 高级选项面板 -->
       <Transition name="slide-down">
         <div v-if="showAdvanced" class="advanced-panel">
@@ -189,7 +228,18 @@ const handleSearch = () => {
             <Field label="包含关键词">
               <template #extra>结果中至少包含一个关键词 (OR关系)，多个关键词用空格或英文逗号(,)分隔</template>
               <Input v-model="includeKeywords" placeholder="高码 hdr 4k" @enter="handleSearch" />
-              <div v-if="includeKeywords.trim()" class="filter-preview">
+              <div class="preset-words-row">
+                <span class="preset-words-label">常用推荐:</span>
+                <Pressable
+                  v-for="word in ['4K', 'HDR', '1080P', '合集', '完结']"
+                  :key="word"
+                  class="preset-chip"
+                  @click="addPresetKeyword('include', word)"
+                >
+                  + {{ word }}
+                </Pressable>
+              </div>
+              <div v-if="includeKeywords.trim()" class="filter-preview mt-2">
                 <span class="preview-label">包含:</span>
                 <Badge
                   v-for="(word, index) in includeKeywords.split(/[,\s]+/).filter(w => w.trim())"
@@ -204,7 +254,18 @@ const handleSearch = () => {
             <Field label="排除关键词">
               <template #extra>结果中包含任意一个关键词就排除 (OR关系)，多个关键词用空格或英文逗号(,)分隔</template>
               <Input v-model="excludeKeywords" placeholder="预告 花絮 枪版 CAM TS" @enter="handleSearch" />
-              <div v-if="excludeKeywords.trim()" class="filter-preview">
+              <div class="preset-words-row">
+                <span class="preset-words-label">常用过滤:</span>
+                <Pressable
+                  v-for="word in ['预告', '花絮', '枪版', 'CAM', 'TS']"
+                  :key="word"
+                  class="preset-chip preset-chip-danger"
+                  @click="addPresetKeyword('exclude', word)"
+                >
+                  + {{ word }}
+                </Pressable>
+              </div>
+              <div v-if="excludeKeywords.trim()" class="filter-preview mt-2">
                 <span class="preview-label">排除:</span>
                 <Badge
                   v-for="(word, index) in excludeKeywords.split(/[,\s]+/).filter(w => w.trim())"
@@ -273,15 +334,89 @@ const handleSearch = () => {
   gap: 1rem;
 }
 
-/* 过滤预览 */
-.filter-preview {
+/* 推荐标签栏 */
+.quick-tags-bar {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   flex-wrap: wrap;
-  padding: 0.5rem;
-  background: hsl(var(--muted) / 0.3);
-  border-radius: 6px;
+  padding: 0 0.5rem;
+}
+
+.quick-tags-label {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  user-select: none;
+}
+
+.quick-tags-list {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.quick-tag-pill {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.5);
+  border: 1px solid hsl(var(--border) / 0.8);
+  border-radius: 9999px;
+  padding: 0.15rem 0.55rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.quick-tag-pill:hover:not(:disabled) {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
+  border-color: hsl(var(--primary) / 0.25);
+  transform: translateY(-1px);
+}
+
+.quick-tag-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 常用预设词按钮 */
+.preset-words-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  margin-top: 0.375rem;
+}
+
+.preset-words-label {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.preset-chip {
+  font-size: 0.6875rem;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.4);
+  border: 1px dashed hsl(var(--border));
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-chip:hover {
+  color: hsl(var(--primary));
+  border-color: hsl(var(--primary) / 0.5);
+  background: hsl(var(--primary) / 0.08);
+}
+
+.preset-chip-danger:hover {
+  color: hsl(var(--destructive));
+  border-color: hsl(var(--destructive) / 0.5);
+  background: hsl(var(--destructive) / 0.08);
 }
 
 .preview-label {

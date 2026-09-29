@@ -44,7 +44,6 @@ const mainContentRef = ref<HTMLElement | null>(null);
 const footerRef = ref<HTMLElement | null>(null);
 const searchResultsBlockRef = ref<HTMLElement | null>(null);
 const searchFormBlockRef = ref<HTMLElement | null>(null);
-const mobileSearchResultsHeight = ref<string>('');
 const exportSettings = ref<ExportSettings>({
   format: 'json',
   fields: ['title', 'source', 'datetime'],
@@ -644,51 +643,6 @@ const handleExportConfirm = () => {
   closeExportModal();
 };
 
-const updateMobileSearchResultsHeight = () => {
-  if (typeof window === 'undefined' || window.innerWidth > 768) {
-    mobileSearchResultsHeight.value = '';
-    return;
-  }
-
-  const resultsBlock = searchResultsBlockRef.value;
-  const footer = footerRef.value;
-
-  if (!resultsBlock || !footer) {
-    mobileSearchResultsHeight.value = '';
-    return;
-  }
-
-  const resultsTop = resultsBlock.getBoundingClientRect().top;
-  const footerTop = footer.getBoundingClientRect().top;
-  const availableHeight = Math.floor(footerTop - resultsTop - 8);
-
-  mobileSearchResultsHeight.value = availableHeight > 0 ? `${availableHeight}px` : '';
-};
-
-const syncMobileSearchLayout = () => {
-  nextTick(() => {
-    updateMobileSearchResultsHeight();
-  });
-};
-
-// 窄屏下结果区高度是按"页脚顶部 - 结果区顶部"算出的固定值。表单区高度变化
-// （如展开"高级筛选"）不会触发下面的状态 watch，旧高度会把表单挤压并盖住溢出的筛选面板，
-// 所以还要监听表单区自身的尺寸变化并重算。
-watch(searchFormBlockRef, (el, _prev, onCleanup) => {
-  if (!el || typeof ResizeObserver === 'undefined') return;
-  const observer = new ResizeObserver(() => syncMobileSearchLayout());
-  observer.observe(el);
-  onCleanup(() => observer.disconnect());
-});
-
-watch(
-  () => [currentPage.value, hasSearched.value, loading.value, searchResults.total, isActivelySearching.value],
-  () => {
-    syncMobileSearchLayout();
-  },
-  { deep: true }
-);
-
 // 根据配置计算第二次、第三次搜索的src参数
 const calculateSrcForFullSearch = (): 'all' | 'tg' | 'plugin' => {
   try {
@@ -986,21 +940,18 @@ onMounted(async () => {
   // 首先初始化后端健康状态（只调用一次）
   await initBackendHealth();
   loadExportSettings();
-  syncMobileSearchLayout();
   
   // 然后初始化其他状态
   checkAuth();
   
   // 监听事件
   window.addEventListener('auth:required', handleAuthRequired);
-  window.addEventListener('resize', syncMobileSearchLayout);
 });
 
 onUnmounted(() => {
   // 确保在组件卸载时清理所有定时器和事件监听
   stopUpdate();
   window.removeEventListener('auth:required', handleAuthRequired);
-  window.removeEventListener('resize', syncMobileSearchLayout);
 });
 </script>
 
@@ -1101,8 +1052,8 @@ onUnmounted(() => {
       class="main-content container mx-auto px-4 py-8 flex-1"
       :class="{ 'search-main': currentPage === 'search' }"
     >
-      <!-- 页面切换动画；搜索页进场结束后按最终位置重算窄屏结果区高度 -->
-      <SwitchTransition @after-enter="syncMobileSearchLayout">
+      <!-- 页面切换动画 -->
+      <SwitchTransition>
       <!-- 搜索页面 -->
       <div v-if="currentPage === 'search'" class="search-page">
         <!-- 搜索表单 -->
@@ -1129,19 +1080,10 @@ onUnmounted(() => {
           />
         </div>
         
-        <!-- 搜索结果：结果区常驻，等待态由 ResultTabs 内部管理。
-             此前这里是 v-if="loading" 与 v-else 两块互斥：4 秒窗口结束时 loading 转 false，
-             整个结果块先卸载再重新挂载，新挂载的 LoadingOrbit 从第 0 帧开始播——
-             用户看到的就是"等待动画重置播放"+界面闪烁。
-             改成常驻后，同一个轨道实例从搜索开始连续播到出结果。 -->
+        <!-- 搜索结果：结果区常驻，等待态由 ResultTabs 内部管理。 -->
         <div
           ref="searchResultsBlockRef"
           class="search-results-block"
-          :style="mobileSearchResultsHeight ? {
-            height: mobileSearchResultsHeight,
-            minHeight: mobileSearchResultsHeight,
-            maxHeight: mobileSearchResultsHeight
-          } : undefined"
         >
           <ResultTabs 
             :mergedResults="searchResults.mergedResults || {}" 
@@ -1243,7 +1185,6 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .app-shell {
-    --mobile-footer-height: calc(3.15rem + env(safe-area-inset-bottom));
     height: 100dvh;
     min-height: 100dvh;
     overflow: hidden;
@@ -1251,10 +1192,10 @@ onUnmounted(() => {
 
   .main-content {
     flex: 1 1 auto;
-    height: calc(100dvh - 4rem - var(--mobile-footer-height));
+    height: calc(100dvh - 4rem);
     min-height: 0;
     box-sizing: border-box;
-    padding-top: 2rem;
+    padding-top: 1rem;
     padding-bottom: 0.5rem;
     overflow: hidden;
     overflow-x: hidden;
@@ -1264,32 +1205,9 @@ onUnmounted(() => {
     overflow-y: auto;
   }
 
+  /* 移动端隐藏纯展示的版权页脚，把宝贵的纵向屏幕高度留给搜索结果 */
   .footer-shell {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 30;
-    min-height: var(--mobile-footer-height);
-    margin-top: 0 !important;
-  }
-
-  .footer-shell .container {
-    box-sizing: border-box;
-    padding-top: 0.2rem;
-    padding-bottom: calc(0.2rem + env(safe-area-inset-bottom));
-    min-height: var(--mobile-footer-height);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .footer-shell .container > div {
-    gap: 1rem;
-    font-size: 0.875rem;
-    line-height: 1.25;
-    flex-wrap: nowrap;
-    align-items: center;
+    display: none;
   }
 
   .search-page {
@@ -1297,7 +1215,7 @@ onUnmounted(() => {
     grid-template-rows: auto auto minmax(0, 1fr);
     height: 100%;
     min-height: 0;
-    gap: 1rem;
+    gap: 0.75rem;
   }
 
   /* 统计栏与表单块不能做 flex 容器：里面的 .card 是 flex 子项，会按内容宽度收缩成一小条。
@@ -1310,6 +1228,8 @@ onUnmounted(() => {
 
   .search-results-block {
     display: flex;
+    flex-direction: column;
+    height: 100%;
     min-height: 0;
     overflow: hidden;
   }
